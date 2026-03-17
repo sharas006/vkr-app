@@ -1,0 +1,2468 @@
+<!doctype html>
+<html lang="lt">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>VKR • OFFLINE App (Login + Rolės)</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;--card:#fff;--muted:#6b7280;--text:#111827;--primary:#0ea5e9;
+      --green:#10b981;--red:#ef4444;--amber:#f59e0b;--border:#e5e7eb;--rounded:14px;
+      --danger-bg:#fff5f5;--danger-b:#fecaca;
+    }
+    *{box-sizing:border-box}
+    html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+.req-miss{
+  border:2px solid #ef4444 !important;
+}
+.req-miss .muted{
+  color:#b91c1c !important;
+  font-weight:700;
+}
+
+  /* 👇 FONAS */
+  background:
+    linear-gradient(
+      rgba(10, 15, 25, 0.65),
+      rgba(10, 15, 25, 0.65)
+    ),
+    url("img/bg.jpg") no-repeat center center fixed;
+
+  background-size: cover;
+}
+
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif
+    .container{max-width:1200px;margin:0 auto;padding:16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--rounded);padding:14px;margin-bottom:12px}
+    .row{display:grid;gap:12px}
+    .row-2{grid-template-columns:1fr 1fr}
+    .row-3{grid-template-columns:repeat(3,1fr)}
+    .row-4{grid-template-columns:repeat(4,1fr)}
+    select,input,textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:#fff}
+    textarea{min-height:90px}
+    .btn{display:inline-block;border:1px solid var(--border);background:#fff;border-radius:10px;padding:9px 12px;cursor:pointer}
+    .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .btn.green{background:var(--green);color:#fff;border-color:var(--green)}
+    .btn.red{background:var(--red);color:#fff;border-color:#dc2626}
+    .btn.amber{background:var(--amber);color:#111827;border-color:#d97706}
+    .muted{color:var(--muted)}
+    .right{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+    .headerline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .hidden{display:none}
+    .btn.pressed{outline:2px solid #0ea5e9}
+    .pill{display:inline-block;background:#e5f3ff;color:#075985;border:1px solid #bae6fd;border-radius:999px;padding:2px 8px;font-size:12px}
+    .danger{background:var(--danger-bg);border-color:var(--danger-b)}
+    .blink { animation: blink 1s infinite; }
+    @keyframes blink {
+      0%,50% { box-shadow:0 0 0 0 rgba(239,68,68,0); }
+      51%,100% { box-shadow:0 0 0 6px rgba(239,68,68,.25); }
+    }
+    .alarm{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:6px 10px;border-radius:999px;
+      border:1px solid #fecaca;background:#fff5f5;color:#b91c1c;
+      font-weight:700;font-size:13px;
+    }
+    table{width:100%;border-collapse:collapse}
+    th,td{border-top:1px solid var(--border);padding:8px;text-align:left;font-size:14px;vertical-align:top}
+    thead th{border-top:0;color:var(--muted)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tabs .btn{border-radius:999px}
+    .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .kpi .card{padding:10px;text-align:center}
+    .kpi h2{margin:6px 0 0 0}
+    @media (max-width:900px){
+      .row-3{grid-template-columns:1fr}
+      .row-4{grid-template-columns:1fr}
+      .kpi{grid-template-columns:1fr 1fr}
+    }
+    .alarm{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:6px 10px;border-radius:999px;
+      border:1px solid #fecaca;background:#fff5f5;color:#b91c1c;
+      font-weight:700;font-size:13px;
+    }
+
+    /* modal */
+    .modal.hidden { display:none; }
+    .modal {
+      position:fixed; left:0; top:0; width:100%; height:100%;
+      background:rgba(0,0,0,0.45); display:flex; justify-content:center; align-items:center;
+      z-index:9999;
+    }
+    .modal-content{
+      background:#fff; padding:20px; width:400px; border-radius:12px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.3);
+    }
+    #ntTitle,#ntComment,#ntMechs{
+      width:100%; padding:8px; border:1px solid #ccc; border-radius:8px;
+    }
+    #ntComment{ height:80px; }
+  </style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+const DB_KEY = 'vkr_app_db_v1';
+// ===== ONLINE DB (Google Apps Script) =====
+const API_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLijkYTOFKz4PgT06g3iHAx7Kzp77D3Dyw2GvAUqjpS1olmHqKSQuPc4X4eF5DGsPF0qnSFCQXLIhoWCIt300FCXUPOyunhcABe62owIikusN2gHzMhOayo0UBNaFO3fipTVe1Uc9WqIeOfACSVzlw7aUSjt5rsMA5SaAas4WYjTvnV0sXZU2oIumonV1Q7c4lE8F6OEqkl9kMPHxpECGjH7vXWAYHN5LTSw9fUk9Nt6PkvjvWJe8HuRuNqhyJGWqYH5jb9oGeaDqS9OBh6tYUqjLxsq7Q&lib=MgC32PGkusH7sSbzXOHmE-LVhD7P4sTYG'; // pvz script.googleusercontent.com/... arba script.google.com/.../exec
+
+const ONLINE = true;        // jei nori grįžti į localStorage – padaryk false
+const SYNC_EVERY_MS = 5000; // kas kiek laiko atsinaujinti (5s)
+
+
+/* helpers */
+function rid(){ return 'id'+Math.random().toString(16).slice(2)+Math.random().toString(16).slice(2); }
+function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function nowHM(){ const d=new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+function parentOfAsset(assetId){
+  if(!db || !Array.isArray(db.grabs)) return '—';
+  const g = db.grabs.find(x => x && x.id === assetId);
+  if(!g) return '—';
+  return g.parentEquipId ? labelEquip(g.parentEquipId) : '—';
+}
+function taskSortKey(t){ return t.createdAt || t.startedAt || 0; }
+function sortNewestFirst(arr){ return (arr||[]).slice().sort((a,b)=>taskSortKey(b)-taskSortKey(a)); }
+function seenInfo(t){
+  const ids = t.seenBy ? Object.keys(t.seenBy) : [];
+  if(!ids.length) return 'Nematė niekas';
+  return 'Matė: ' + ids.map(uid => userDisplay(uid)+' ('+fmt(t.seenBy[uid])+')').join(', ');
+}
+function isSeen(t, userId){
+  return !!(t.seenBy && t.seenBy[userId]);
+}
+function mechanicVisibleTasks(userId){
+  return (db.tasks||[]).filter(t=>{
+    const active = (t.status==='Nauja' || t.status==='Vykdoma');
+    return active;
+  });
+}
+function unseenForMechanic(userId){
+  return mechanicVisibleTasks(userId).filter(t=>!isSeen(t,userId));
+}
+function labelAssetForSelect(assetId){
+  if(!db || !Array.isArray(db.grabs)) return labelEquip(assetId);
+  const g = db.grabs.find(x => x && x.id === assetId);
+  if(!g) return labelEquip(assetId);
+  const parent = g.parentEquipId ? labelEquip(g.parentEquipId) : '—';
+  return `${g.label || g.id} (priskirta: ${parent})`;
+}
+function fmt(dt){
+  if(!dt) return '—';
+  const x=new Date(dt);
+  if(isNaN(x*1)) return dt;
+  const y=x.getFullYear(), m=('0'+(x.getMonth()+1)).slice(-2), d=('0'+x.getDate()).slice(-2),
+        hh=('0'+x.getHours()).slice(-2), mm=('0'+x.getMinutes()).slice(-2);
+  return `${y}-${m}-${d} ${hh}:${mm}`;
+}
+function fmtMinutes(min){
+  if(min===null || min===undefined || isNaN(min)) return '—';
+  const h=Math.floor(min/60), m=min%60;
+  if(h<=0) return `${m} min`;
+  return `${h} val. ${m} min`;
+}
+function safeTrim(s){ return (s||'').toString().trim(); }
+function escapeHtml(s){
+  return (s||'').toString()
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'","&#039;");
+}
+
+/* db */
+async function apiGetDB(){
+  const r = await fetch(API_URL, { method:'GET', cache:'no-store' });
+  const txt = await r.text();
+  return JSON.parse(txt || '{}');
+}
+
+async function apiSaveDB(dbObj){
+  const r = await fetch(API_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify(dbObj)
+  });
+  return r.json().catch(()=>({ok:true}));
+}
+
+// ===== local + online wrapper =====
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(DB_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){
+    return null;
+  }
+}
+
+function saveDB_local(dbObj){
+  localStorage.setItem(DB_KEY, JSON.stringify(dbObj));
+}
+
+// Kad nereikėtų perrašinėti viso tavo kodo (kur kviečia saveDB(db)):
+async function saveDB(dbObj){
+  // visada išsisaugom lokaliai (kad veiktų offline)
+  saveDB_local(dbObj);
+
+  // jei online įjungtas – siunčiam į serverį
+  if(ONLINE){
+    try{ await apiSaveDB(dbObj); }catch(e){ /* tyli klaida */ }
+  }
+}
+
+
+function seedDB(){
+  const db = {
+    version: 1,
+    session: { userId: null, adminView:'dashboard', opView:'home', mechView:'tasks', opEquipId:null },
+    users: [
+      { id:'u-admin', username:'admin', display:'Admin', role:'admin', password:'admin123' }
+    ],
+    equipment: [
+      { id:'terberg-106', type:'Terberg', num:'106', name:'', model:'' },
+      { id:'linde-23', type:'Linde krautuvas', num:'23', name:'', model:'' },
+      { id:'lhm-03', type:'Liebherr LHM400', num:'03', name:'', model:'' }
+    ],
+    grabs: [
+      { id:'gr-ecrane-metal', label:'E-Crane – metalinis greiferis', parentEquipId:'lhm-03' },
+      { id:'gr-ecrane-bulk',  label:'E-Crane – birių greiferis',     parentEquipId:'lhm-03' },
+      { id:'gr-sokol-metal',  label:'Sokol – metalinis greiferis',   parentEquipId:'terberg-106' },
+      { id:'gr-sokol-bulk',   label:'Sokol – birių greiferis',       parentEquipId:'terberg-106' }
+    ],
+    tasks: [],
+    approvals: [],
+    notes: [],
+    completed: [],
+    lube: {}
+  };
+  // demo users
+  db.users.push({ id:'u-sarunas', username:'sarunas', display:'Šarūnas', role:'operator', password:'123' });
+  db.users.push({ id:'u-vaidotas', username:'vaidotas', display:'Vaidotas', role:'mechanic', password:'123' });
+  db.tasks.unshift({ id:rid(), equipId:'linde-23', title:'Pakeisti hidraulikos žarną', status:'Nauja', assignedTo:['u-aurimas'], shared:false, source:'admin', createdAt:Date.now() });
+  db.tasks.unshift({ id:rid(), equipId:'terberg-106', title:'Bendra apžiūra po 250 m/h', status:'Nauja', assignedTo:[], shared:true, source:'admin', createdAt:Date.now() });
+
+  saveDB(db);
+  return db;
+}
+
+let db = null;
+
+async function boot(){
+  db = await loadDB();
+  if(!db){
+    db = seedDB();
+    await saveDB(db);
+  }
+  render();
+}
+
+boot();
+
+
+function ensureOpReminder(eid){
+  if(opReminderTimer) clearInterval(opReminderTimer);
+
+  opReminderTimer = setInterval(()=>{
+    const taskId = db.session.opRunningByEquip?.[eid] || null;
+    if(!taskId) return;
+    const t = (db.tasks||[]).find(x=>x.id===taskId);
+    if(!t) return;
+    alert('⚠️ Primenu: vyksta remontas. Nepamiršk užbaigti: ' + (t.title||''));
+  }, 5*60*1000);
+}
+
+/* realtime sync */
+window.addEventListener('storage', (e)=>{
+  if(e.key===DB_KEY){
+    const newer=loadDB();
+    if(newer){ db=newer; render(); }
+  }
+});
+
+/* derived */
+function currentUser(){ return db.users.find(u=>u.id===db.session.userId) || null; }
+function userDisplay(uid){ const u=db.users.find(x=>x.id===uid); return u ? (u.display||u.username) : '(nenurodyta)'; }
+function usersByRole(role){ return db.users.filter(u=>u.role===role); }
+function labelEquip(eid){
+  const e = db.equipment.find(x=>x.id===eid);
+  if(e) return `${e.type||'Technika'}${e.num?(' Nr. '+e.num):''}`;
+
+  const g = (db.grabs||[]).find(x=>x.id===eid);
+  if(g) return g.label || eid;
+
+  return eid;
+}
+
+function setSessionUser(userId){ db.session.userId=userId; saveDB(db); }
+function logout(){ setSessionUser(null); render(); }
+
+/* auth */
+function doLogin(username,password){
+  const u=db.users.find(x=>x.username===username);
+  if(!u) return {ok:false,msg:'Neteisingas vartotojas arba slaptažodis.'};
+  if(u.password!==password) return {ok:false,msg:'Neteisingas vartotojas arba slaptažodis.'};
+  setSessionUser(u.id);
+  return {ok:true};
+}
+
+/* UI helpers */
+function tabBtn(key,label,active){
+  const cls='btn'+(key===active?' primary':'');
+  return `<button class="${cls}" data-tab="${key}">${label}</button>`;
+}
+
+function changePasswordUI(user){
+  return `
+    <div class="card">
+      <div class="headerline">
+        <h3 style="margin:0">Slaptažodis</h3>
+        <span class="pill">${escapeHtml(user.display||user.username)} • ${escapeHtml(user.role)}</span>
+      </div>
+      <div class="row row-3" style="margin-top:8px">
+        <div><div class="muted">Dabartinis</div><input id="pwOld" type="password"></div>
+        <div><div class="muted">Naujas</div><input id="pwNew" type="password"></div>
+        <div><div class="muted">Pakartoti</div><input id="pwNew2" type="password"></div>
+      </div>
+      <div class="right" style="margin-top:8px">
+        <button class="btn" id="pwSave">Išsaugoti</button>
+      </div>
+      <div class="muted" style="font-size:12px" id="pwMsg"></div>
+    </div>`;
+}
+function bindChangePassword(user){
+  const b=document.getElementById('pwSave');
+  if(!b) return;
+  b.onclick=()=>{
+    const oldv=safeTrim(document.getElementById('pwOld').value);
+    const nv1=safeTrim(document.getElementById('pwNew').value);
+    const nv2=safeTrim(document.getElementById('pwNew2').value);
+    const msg=document.getElementById('pwMsg');
+    msg.textContent='';
+    if(oldv!==user.password){ msg.textContent='Dabartinis slaptažodis neteisingas.'; return; }
+    if(!nv1 || nv1.length<4){ msg.textContent='Naujas slaptažodis per trumpas (min 4).'; return; }
+    if(nv1!==nv2){ msg.textContent='Nauji slaptažodžiai nesutampa.'; return; }
+    const idx=db.users.findIndex(x=>x.id===user.id);
+    db.users[idx].password=nv1;
+    saveDB(db);
+    msg.textContent='Slaptažodis pakeistas.';
+    document.getElementById('pwOld').value='';
+    document.getElementById('pwNew').value='';
+    document.getElementById('pwNew2').value='';
+  };
+}
+
+/* render router */
+function render(){
+  const root=document.getElementById('app');
+  const u=currentUser();
+  if(!u){ root.innerHTML=renderLogin(); bindLogin(); return; }
+  if(u.role==='admin') renderAdmin(root,u);
+  else if(u.role==='operator') renderOperator(root,u);
+  else renderMechanic(root,u);
+}
+
+/* login */
+function renderLogin(){
+  return `
+    <div class="card" style="max-width:520px;margin:40px auto">
+      <div style="text-align:center;margin-bottom:14px">
+     <img src="img/logo.png" style="height:70px">
+     </div>
+      <h2 style="margin:0 0 6px 0">VKR • Prisijungimas</h2>
+      <div class="muted">Prisijunk, ir atsidarys tavo rolės langas.</div>
+      <div class="row" style="margin-top:12px">
+        <div><div class="muted">Vartotojas</div><input id="lgUser" placeholder="pvz. admin"></div>
+        <div><div class="muted">Slaptažodis</div><input id="lgPass" type="password" placeholder="••••••"></div>
+        <div class="right"><button class="btn primary" id="lgBtn">Prisijungti</button></div>
+        <div class="muted" style="font-size:12px" id="lgMsg"></div>
+        <div class="card" style="background:#fff;border-style:dashed">
+          <div class="muted" style="font-size:12px">Demo:</div>
+          <div style="font-size:13px">
+            <div><b>admin</b> / 123</div>
+            <div><b>sarunas</b> / 123</div>
+            <div><b>vaidotas</b> / 123</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+function bindLogin(){
+  const u=document.getElementById('lgUser');
+  const p=document.getElementById('lgPass');
+  const b=document.getElementById('lgBtn');
+  const msg=document.getElementById('lgMsg');
+  function go(){
+    const res=doLogin(safeTrim(u.value),safeTrim(p.value));
+    if(!res.ok){ msg.textContent=res.msg||'Klaida.'; return; }
+    render();
+  }
+  b.onclick=go;
+  p.addEventListener('keydown',(e)=>{ if(e.key==='Enter') go(); });
+}
+
+/* ADMIN */
+function renderAdmin(root,user){
+  const view = db.session.adminView || 'dashboard';
+
+  const tabs = `
+    <div class="card">
+      <div class="headerline">
+        <div style="text-align:center;padding:10px;background:#ffffff;border-bottom:1px solid #e5e7eb;">
+       <img src="img/logo.png" style="height:60px">
+      </div>
+        <div class="right">
+          <span class="pill">${escapeHtml(user.display||user.username)}</span>
+          <button class="btn" id="logout">Atsijungti</button>
+        </div>
+      </div>
+      <div class="tabs" style="margin-top:10px">
+        ${tabBtn('dashboard','Skydelis',view)}
+        ${tabBtn('lube','Tepimai',view)}
+        ${tabBtn('tasks','Užduotys',view)}
+        ${tabBtn('approvals','Patvirtinimai',view)}
+        ${tabBtn('notes','Pastabos',view)}
+        ${tabBtn('users','Naudotojai',view)}
+        ${tabBtn('equip','Technika',view)}
+        ${tabBtn('grabs','Greiferiai',view)}
+        ${tabBtn('password','Slaptažodis',view)}
+        ${tabBtn('history','Remonto istorija',view)}
+      </div>
+    </div>`;
+
+  let mid = '';
+  if(view==='dashboard') mid = adminDashboard();
+  else if(view==='lube') mid = adminLube();
+  else if(view==='tasks') mid = adminTasks();
+  else if(view==='approvals') mid = adminApprovals();
+  else if(view==='notes') mid = adminNotes(user);
+  else if(view==='users') mid = adminUsers();
+  else if(view==='equip') mid = adminEquip();
+  else if(view==='grabs') mid = adminGrabs();
+  else if(view==='password') mid = changePasswordUI(user);
+  else if(view==='history') mid = adminHistory();
+
+  root.innerHTML = tabs + mid;
+
+  document.getElementById('logout').onclick = logout;
+
+  document.querySelectorAll('[data-tab]').forEach(b=>{
+    b.onclick = ()=>{ 
+      db.session.adminView = b.getAttribute('data-tab'); 
+      saveDB(db); 
+      render(); 
+    };
+  });
+
+  if(view==='users') bindAdminUsers();
+  if(view==='equip') bindAdminEquip();
+  if(view==='tasks') bindAdminTasks();
+  if(view==='approvals') bindAdminApprovals();
+  if(view==='notes') bindAdminNotes(user);
+  if(view==='password') bindChangePassword(user);
+  if(view==='lube') bindAdminLube();
+  if(view==='grabs') bindAdminGrabs();
+  if(view==='history') bindAdminHistory();
+}
+
+function adminDashboard(){
+  const active=db.tasks.filter(t=>t.status==='Nauja'||t.status==='Vykdoma').length;
+  const awaiting=db.approvals.length;
+  const notes=db.notes.length;
+  const users=db.users.length;
+  return `
+    <div class="kpi">
+      <div class="card"><div class="muted">Aktyvios užduotys</div><h2>${active}</h2></div>
+      <div class="card"><div class="muted">Laukia patvirtinimo</div><h2>${awaiting}</h2></div>
+      <div class="card"><div class="muted">Atviros pastabos</div><h2>${notes}</h2></div>
+      <div class="card"><div class="muted">Naudotojai</div><h2>${users}</h2></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="muted">Atidaryk šį failą 2 languose (pvz. Admin + Mechanikas) – pakeitimai persiduos be refresh (per localStorage “storage” event).</div>
+    </div>`;
+}
+
+/* ADMIN – LUBE (peržiūra) */
+function adminLube(){
+  if(!db.lube) db.lube = {};
+  if(!db.grabs) db.grabs = [];
+
+  const eqOpts = (db.equipment||[])
+    .map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
+    .join('');
+
+  const grabOpts = (db.grabs||[])
+    .map(g=>`<option value="${g.id}">${escapeHtml(labelAssetForSelect(g.id))}</option>`)
+    .join('');
+
+  const assetOpts = `
+    <optgroup label="Technika">
+      ${eqOpts || '<option disabled>(nėra technikos)</option>'}
+    </optgroup>
+    <optgroup label="Greiferiai / įrankiai">
+      ${grabOpts || '<option disabled>(nėra greiferių)</option>'}
+    </optgroup>
+  `;
+
+  const all = [];
+  Object.keys(db.lube).forEach(assetId=>{
+    (db.lube[assetId]||[]).forEach(rec=> all.push({assetId, ...rec}));
+  });
+  all.sort((a,b)=> (a.date<b.date ? 1 : -1));
+
+  const rows = all.map(r=>`
+    <tr>
+      <td>${escapeHtml(labelEquip(r.assetId) || r.assetId)}</td>
+      <td>${escapeHtml(parentOfAsset(r.assetId))}</td>
+      <td>${escapeHtml(r.date || '—')}</td>
+      <td>${escapeHtml(r.by || '—')}</td>
+      <td>${escapeHtml(r.note || '—')}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="5" class="muted">Įrašų dar nėra</td></tr>`;
+
+  return `
+    <div class="card">
+      <div class="headerline">
+        <h3 style="margin:0">Tepimai (peržiūra)</h3>
+      </div>
+
+      <div class="row row-3" style="margin-top:8px">
+        <div>
+          <div class="muted">Technika / įrankis</div>
+          <select id="aLubeFilter">
+            <option value="all">Visa technika / visi įrankiai</option>
+            ${assetOpts}
+          </select>
+        </div>
+        <div>
+          <div class="muted">Nuo datos</div>
+          <input type="date" id="aLubeFrom">
+        </div>
+        <div>
+          <div class="muted">Iki datos</div>
+          <input type="date" id="aLubeTo">
+        </div>
+      </div>
+
+      <div class="right" style="margin-top:6px">
+        <button class="btn" id="aLubeClear" type="button">Išvalyti</button>
+        <button class="btn primary" id="aLubeApply" type="button">Filtruoti</button>
+      </div>
+
+      <table style="margin-top:10px">
+        <thead>
+          <tr>
+            <th>Objektas</th>
+            <th>Priskirta technikai</th>
+            <th>Data</th>
+            <th>Kas teipė</th>
+            <th>Pastaba</th>
+          </tr>
+        </thead>
+        <tbody id="aLubeBody">${rows}</tbody>
+      </table>
+
+      <div class="muted" style="margin-top:8px;font-size:12px">
+        Rodoma iš db.lube (tą pildo mechanikai).
+      </div>
+    </div>`;
+}
+function bindAdminLube(){
+  const sel    = document.getElementById('aLubeFilter');
+  const fromEl = document.getElementById('aLubeFrom');
+  const toEl   = document.getElementById('aLubeTo');
+  const body   = document.getElementById('aLubeBody');
+  const apply  = document.getElementById('aLubeApply');
+  const clear  = document.getElementById('aLubeClear');
+
+  if(!body) return;
+
+  function allRows(){
+    const arr=[];
+    Object.keys(db.lube||{}).forEach(assetId=>{
+      (db.lube[assetId]||[]).forEach(rec=> arr.push({assetId, ...rec}));
+    });
+    arr.sort((a,b)=> (a.date<b.date ? 1 : -1));
+    return arr;
+  }
+
+  function renderRows(rows){
+    body.innerHTML = rows.map(r=>`
+      <tr>
+        <td>${escapeHtml(labelEquip(r.assetId) || r.assetId)}</td>
+        <td>${escapeHtml(parentOfAsset(r.assetId))}</td>
+        <td>${escapeHtml(r.date || '—')}</td>
+        <td>${escapeHtml(r.by || '—')}</td>
+        <td>${escapeHtml(r.note || '—')}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="5" class="muted">Įrašų dar nėra</td></tr>`;
+  }
+
+  function applyFilter(){
+    const f    = sel    ? sel.value : 'all';
+    const from = fromEl ? fromEl.value : '';
+    const to   = toEl   ? toEl.value   : '';
+
+    const rows = allRows().filter(r=>{
+      if(f !== 'all' && r.assetId !== f) return false;
+      if(from && (!r.date || r.date < from)) return false;
+      if(to   && (!r.date || r.date > to))   return false;
+      return true;
+    });
+
+    renderRows(rows);
+  }
+
+  if(apply) apply.onclick = applyFilter;
+
+  if(clear) clear.onclick = ()=>{
+    if(sel) sel.value = 'all';
+    if(fromEl) fromEl.value = '';
+    if(toEl) toEl.value = '';
+    renderRows(allRows());
+  };
+
+  if(sel) sel.onchange = applyFilter;
+}
+
+/* ADMIN – GRABS */
+function adminGrabs(){
+  if(!db.grabs) db.grabs=[];
+
+  const eqOpts = (db.equipment||[])
+    .map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
+    .join('');
+
+  const rows = (db.grabs||[]).map(g=>`
+    <tr>
+      <td>${escapeHtml(g.label||'')}</td>
+      <td>${escapeHtml(labelEquip(g.parentEquipId)||g.parentEquipId||'—')}</td>
+      <td class="right">
+        <button class="btn" data-g-edit="${g.id}">Keisti</button>
+        <button class="btn red" data-g-del="${g.id}">Trinti</button>
+      </td>
+    </tr>
+  `).join('') || `<tr><td colspan="3" class="muted">Greiferių nėra</td></tr>`;
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Greiferiai</h3>
+      <table>
+        <thead><tr><th>Pavadinimas</th><th>Priskirta technikai</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Pridėti / Keisti greiferį</h3>
+
+      <div class="row row-3">
+        <div>
+          <div class="muted">Pavadinimas</div>
+          <input id="gLabel" placeholder="Pvz.: Birių greiferis">
+        </div>
+
+        <div>
+          <div class="muted">Priskirti technikai</div>
+          <select id="gEquip">${eqOpts}</select>
+        </div>
+
+        <div class="right" style="align-items:flex-end">
+          <button class="btn" id="gClear">Išvalyti</button>
+          <button class="btn primary" id="gSave">Išsaugoti</button>
+        </div>
+      </div>
+
+      <input type="hidden" id="gId">
+      <div class="muted" style="font-size:12px" id="gMsg"></div>
+    </div>
+  `;
+}
+function bindAdminGrabs(){
+  if(!db.grabs) db.grabs=[];
+
+  const idEl = document.getElementById('gId');
+  const labelEl = document.getElementById('gLabel');
+  const equipEl = document.getElementById('gEquip');
+  const msgEl = document.getElementById('gMsg');
+
+  function clear(){
+    idEl.value='';
+    labelEl.value='';
+    if(equipEl && equipEl.options.length) equipEl.selectedIndex=0;
+    msgEl.textContent='';
+  }
+
+  document.getElementById('gClear').onclick = clear;
+
+  document.getElementById('gSave').onclick = ()=>{
+    msgEl.textContent='';
+
+    const id = safeTrim(idEl.value);
+    const label = safeTrim(labelEl.value);
+    const parentEquipId = equipEl ? equipEl.value : '';
+
+    if(!label){ msgEl.textContent='Reikia pavadinimo.'; return; }
+    if(!parentEquipId){ msgEl.textContent='Reikia priskirti technikai.'; return; }
+
+    if(id){
+      const g = db.grabs.find(x=>x.id===id);
+      if(!g){ msgEl.textContent='Greiferis nerastas.'; return; }
+      g.label = label;
+      g.parentEquipId = parentEquipId;
+      msgEl.textContent='Atnaujinta.';
+    }else{
+      db.grabs.push({
+        id: 'gr-'+rid(),
+        label,
+        parentEquipId
+      });
+      msgEl.textContent='Pridėta.';
+    }
+
+    saveDB(db);
+    render();
+  };
+
+  document.querySelectorAll('[data-g-edit]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.getAttribute('data-g-edit');
+      const g=db.grabs.find(x=>x.id===id);
+      if(!g) return;
+      idEl.value=g.id;
+      labelEl.value=g.label||'';
+      if(equipEl) equipEl.value=g.parentEquipId||'';
+      msgEl.textContent='Redaguoji: '+(g.label||g.id);
+    };
+  });
+
+  document.querySelectorAll('[data-g-del]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.getAttribute('data-g-del');
+      const g=db.grabs.find(x=>x.id===id);
+      if(!g) return;
+      if(!confirm('Trinti greiferį: '+(g.label||g.id)+'?')) return;
+
+      db.grabs = db.grabs.filter(x=>x.id!==id);
+
+      saveDB(db);
+      render();
+    };
+  });
+}
+
+/* ADMIN – USERS */
+function adminUsers(){
+  const rows=db.users.map(u=>`
+    <tr>
+      <td>${escapeHtml(u.display||'')}</td>
+      <td><code>${escapeHtml(u.username)}</code></td>
+      <td>${escapeHtml(u.role)}</td>
+      <td class="right">
+        <button class="btn" data-edit-user="${u.id}">Keisti</button>
+        ${u.id==='u-admin'?'':`<button class="btn red" data-del-user="${u.id}">Trinti</button>`}
+      </td>
+    </tr>`).join('') || '<tr><td colspan="4" class="muted">Nėra</td></tr>';
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Naudotojai</h3>
+      <table>
+        <thead><tr><th>Vardas</th><th>Prisijungimas</th><th>Rolė</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Pridėti / Keisti</h3>
+      <div class="row row-4">
+        <div><div class="muted">Vardas (rodyti)</div><input id="uDisplay" placeholder="pvz. Rolandas Paškevičius"></div>
+        <div><div class="muted">Username</div><input id="uUsername" placeholder="pvz. rolandas"></div>
+        <div><div class="muted">Rolė</div>
+          <select id="uRole">
+            <option value="operator">operator</option>
+            <option value="mechanic">mechanic</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div><div class="muted">Slaptažodis</div><input id="uPass" placeholder="pvz. 1234 (keisti nebūtina)"></div>
+      </div>
+      <input type="hidden" id="uId">
+      <div class="right" style="margin-top:10px">
+        <button class="btn" id="uClear">Išvalyti</button>
+        <button class="btn primary" id="uSave">Išsaugoti</button>
+      </div>
+      <div class="muted" style="font-size:12px" id="uMsg"></div>
+    </div>`;
+}
+function bindAdminUsers(){
+  const idEl=document.getElementById('uId');
+  const dEl=document.getElementById('uDisplay');
+  const unEl=document.getElementById('uUsername');
+  const rEl=document.getElementById('uRole');
+  const pEl=document.getElementById('uPass');
+  const msg=document.getElementById('uMsg');
+
+  function clear(){ idEl.value=''; dEl.value=''; unEl.value=''; rEl.value='operator'; pEl.value=''; msg.textContent=''; }
+  document.getElementById('uClear').onclick=clear;
+
+  document.getElementById('uSave').onclick=()=>{
+    msg.textContent='';
+    const id=safeTrim(idEl.value);
+    const display=safeTrim(dEl.value);
+    const username=safeTrim(unEl.value);
+    const role=rEl.value;
+    const pass=safeTrim(pEl.value);
+
+    if(!username){ msg.textContent='Reikia username.'; return; }
+    if(!display){ msg.textContent='Reikia vardo.'; return; }
+    if(!id && !pass){ msg.textContent='Naujam naudotojui reikia slaptažodžio.'; return; }
+
+    const clash=db.users.find(u=>u.username===username && u.id!==id);
+    if(clash){ msg.textContent='Toks username jau yra.'; return; }
+
+    if(id){
+      const idx=db.users.findIndex(u=>u.id===id);
+      if(idx<0){ msg.textContent='Naudotojas nerastas.'; return; }
+      db.users[idx].display=display;
+      db.users[idx].username=username;
+      db.users[idx].role=role;
+      if(pass) db.users[idx].password=pass;
+    }else{
+      db.users.push({ id:'u-'+rid(), display, username, role, password:pass });
+    }
+    saveDB(db);
+    clear();
+    render();
+  };
+
+  document.querySelectorAll('[data-edit-user]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.getAttribute('data-edit-user');
+      const u=db.users.find(x=>x.id===id);
+      if(!u) return;
+      idEl.value=u.id; dEl.value=u.display||''; unEl.value=u.username||''; rEl.value=u.role||'operator'; pEl.value='';
+      msg.textContent='Redaguoji: '+(u.display||u.username);
+    };
+  });
+  document.querySelectorAll('[data-del-user]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.getAttribute('data-del-user');
+      const u=db.users.find(x=>x.id===id);
+      if(!u) return;
+      if(!confirm('Trinti '+(u.display||u.username)+'?')) return;
+      db.users=db.users.filter(x=>x.id!==id);
+      db.tasks.forEach(t=>{ t.assignedTo=(t.assignedTo||[]).filter(uid=>uid!==id); });
+      saveDB(db);
+      render();
+    };
+  });
+}
+
+/* ADMIN – EQUIP */
+function adminEquip(){
+  const list=db.equipment.map(e=>`
+    <tr>
+      <td>${escapeHtml(e.type||'')}</td>
+      <td>${escapeHtml(e.num||'')}</td>
+      <td>${escapeHtml(e.name||'')}</td>
+      <td>${escapeHtml(e.model||'')}</td>
+      <td class="right">
+        <button class="btn" data-edit-e="${e.id}">Keisti</button>
+        <button class="btn red" data-del-e="${e.id}">Trinti</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="5" class="muted">Nėra</td></tr>';
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Technika</h3>
+      <table>
+        <thead><tr><th>Tipas</th><th>Nr.</th><th>Pavadinimas</th><th>Modelis</th><th></th></tr></thead>
+        <tbody>${list}</tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Pridėti / Keisti</h3>
+      <div class="row row-4">
+        <div><div class="muted">Tipas</div><input id="eType" placeholder="pvz. Terberg"></div>
+        <div><div class="muted">Garažinis Nr.</div><input id="eNum" placeholder="pvz. 106"></div>
+        <div><div class="muted">Pavadinimas</div><input id="eName" placeholder="pvz. RT223 Nr.2"></div>
+        <div><div class="muted">Modelis</div><input id="eModel" placeholder="pvz. RT223"></div>
+      </div>
+      <input type="hidden" id="eId">
+      <div class="right" style="margin-top:10px">
+        <button class="btn" id="eClear">Išvalyti</button>
+        <button class="btn primary" id="eSave">Išsaugoti</button>
+      </div>
+      <div class="muted" style="font-size:12px" id="eMsg"></div>
+    </div>`;
+}
+function bindAdminEquip(){
+  const idEl=document.getElementById('eId');
+  const tEl=document.getElementById('eType');
+  const nEl=document.getElementById('eNum');
+  const nmEl=document.getElementById('eName');
+  const mEl=document.getElementById('eModel');
+  const msg=document.getElementById('eMsg');
+
+  function clear(){ idEl.value=''; tEl.value=''; nEl.value=''; nmEl.value=''; mEl.value=''; msg.textContent=''; }
+  document.getElementById('eClear').onclick=clear;
+
+  document.getElementById('eSave').onclick=()=>{
+    msg.textContent='';
+    const id=safeTrim(idEl.value);
+    const type=safeTrim(tEl.value);
+    const num=safeTrim(nEl.value);
+    const name=safeTrim(nmEl.value);
+    const model=safeTrim(mEl.value);
+    if(!type){ msg.textContent='Reikia tipo.'; return; }
+    if(!num){ msg.textContent='Reikia numerio.'; return; }
+
+    if(id){
+      const e=db.equipment.find(x=>x.id===id);
+      if(!e){ msg.textContent='Technika nerasta.'; return; }
+      e.type=type; e.num=num; e.name=name; e.model=model;
+    }else{
+      const newId='eq-'+rid();
+      db.equipment.push({id:newId,type,num,name,model});
+    }
+    saveDB(db);
+    clear();
+    render();
+  };
+
+  document.querySelectorAll('tbody tr').forEach(tr=>{
+    const editBtn=tr.querySelector('[data-edit-e]');
+    const delBtn=tr.querySelector('[data-del-e]');
+    if(editBtn){
+      editBtn.onclick=()=>{
+        const id=editBtn.getAttribute('data-edit-e');
+        const e=db.equipment.find(x=>x.id===id);
+        if(!e) return;
+        idEl.value=e.id; tEl.value=e.type||''; nEl.value=e.num||''; nmEl.value=e.name||''; mEl.value=e.model||'';
+        msg.textContent='Redaguoji: '+labelEquip(e.id);
+      };
+    }
+    if(delBtn){
+      delBtn.onclick=()=>{
+        const id=delBtn.getAttribute('data-del-e');
+        if(!confirm('Trinti '+labelEquip(id)+'?')) return;
+        db.equipment=db.equipment.filter(x=>x.id!==id);
+        saveDB(db);
+        render();
+      };
+    }
+  });
+}
+
+/* ADMIN – TASKS */
+function adminTasks(){
+  const eqOpts=db.equipment.map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`).join('');
+  const mechs=usersByRole('mechanic');
+  const mechOpts=mechs.map(m=>`<option value="${m.id}">${escapeHtml(m.display||m.username)}</option>`).join('');
+  const active=db.tasks.filter(t=>t.status==='Nauja'||t.status==='Vykdoma');
+
+  const cards=active.length?active.map(t=>{
+    const log = t.progressLog || [];
+    const last = log.length ? log[log.length-1] : null;
+
+    const progressLine = last
+      ? `<div class="muted">Paskutinis komentaras: ${escapeHtml(last.text||'')} (${escapeHtml(last.date||'')})</div>`
+      : '';
+
+    return `
+      <div class="card danger">
+        <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
+        <b>${escapeHtml(t.title)}</b>
+        ${t.initialComment ? `<div class="muted" style="margin-top:4px;font-style:italic;">Užduoties komentaras: ${escapeHtml(t.initialComment)}</div>` : ''}
+        <div class="muted">Priskirta: ${t.shared?'Bendra visiems':((t.assignedTo||[]).map(userDisplay).join(', ')||'—')}</div>
+        ${progressLine}
+        <div class="muted">${escapeHtml(seenInfo(t))}</div>
+        <div class="right" style="margin-top:6px">
+          <button class="btn" data-st="${t.id}|Nauja">Nauja</button>
+          <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
+          <button class="btn green" data-finish="${t.id}">Baigta (siųsti patvirtinimui)</button>
+        </div>
+      </div>
+    `;
+  }).join(''):'<div class="muted">Aktyvių užduočių nėra</div>';
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Nauja užduotis</h3>
+      <div class="row row-3">
+<div>
+  <div class="muted">Technikos paieška</div>
+  <input id="tEquipSearch" placeholder="Rašyk: 204, Terberg, LHM, 501..." />
+  <div class="muted" style="font-size:12px;margin-top:4px">Filtruoja žemiau esantį sąrašą.</div>
+</div>
+
+<div>
+  <div class="muted">Technika</div>
+  <select id="tEquip" size="8" style="height:auto">${eqOpts}</select>
+</div>
+
+        <div><div class="muted">Pavadinimas</div><input id="tTitle" placeholder="Aprašymas"></div>
+        <div><div class="muted">Priskirti</div><select multiple id="tAssign">${mechOpts}</select></div>
+        <div style="grid-column:1/-1"><label><input type="checkbox" id="tShared"> Bendra visiems mechanikams</label></div>
+      </div>
+      <div class="right" style="margin-top:6px"><button class="btn primary" id="tCreate">Sukurti</button></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Aktyvios užduotys</h3>
+      ${cards}
+    </div>`;
+}
+function bindAdminTasks(){
+    // --- Technikos paieška / filtras ---
+  const eqSearch = document.getElementById('tEquipSearch');
+  const eqSelect = document.getElementById('tEquip');
+
+  if(eqSearch && eqSelect){
+    // išsisaugom visus originalius option'us
+    const allOpts = Array.from(eqSelect.options).map(o => ({
+      value: o.value,
+      text: o.textContent || ''
+    }));
+
+    function applyEquipFilter(){
+      const q = (eqSearch.value || '').trim().toLowerCase();
+
+      // perstatom select option'us
+      eqSelect.innerHTML = '';
+      allOpts
+        .filter(o => !q || o.text.toLowerCase().includes(q))
+        .forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.value;
+          opt.textContent = o.text;
+          eqSelect.appendChild(opt);
+        });
+
+      // jei po filtro liko bent 1 — automatiškai pažymim pirmą
+      if(eqSelect.options.length) eqSelect.selectedIndex = 0;
+    }
+
+    eqSearch.addEventListener('input', applyEquipFilter);
+    // startinis (jei laukas turi reikšmę)
+    applyEquipFilter();
+  }
+
+  const create=document.getElementById('tCreate');
+  if(create){
+    create.onclick=()=>{
+      const equipId=document.getElementById('tEquip').value;
+      const title=safeTrim(document.getElementById('tTitle').value)||'Užduotis';
+      const shared=document.getElementById('tShared').checked;
+      const sel=document.getElementById('tAssign');
+      let assignedTo=[];
+      if(!shared && sel){
+        for(let i=0;i<sel.options.length;i++){ if(sel.options[i].selected) assignedTo.push(sel.options[i].value); }
+      }
+      db.tasks.unshift({ id:rid(), equipId, title, status:'Nauja', assignedTo, shared, source:'admin', createdAt:Date.now() });
+      saveDB(db);
+      render();
+    };
+  }
+  document.querySelectorAll('[data-st]').forEach(b=>{
+    b.onclick=()=>{
+      const [id,st]=b.getAttribute('data-st').split('|');
+      const t=db.tasks.find(x=>x.id===id);
+      if(t){ t.status=st; saveDB(db); render(); }
+    };
+  });
+  document.querySelectorAll('[data-finish]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.getAttribute('data-finish');
+      const t=db.tasks.find(x=>x.id===id);
+      if(!t) return;
+      t.status='Laukia patvirtinimo';
+      db.approvals.unshift({
+        id: rid(),
+        taskId: t.id,
+        equipId: t.equipId,
+        issue: t.title,
+        date: today(),
+        reportedAt: t.reportedAt,
+        doneAt: Date.now(),
+        doneBy: 'Admin',
+        doneById: 'u-admin',
+        role: 'admin',
+        comment: '',
+        helpers: []
+      });
+      saveDB(db);
+      render();
+    };
+  });
+}
+
+/* ADMIN – APPROVALS */
+function adminApprovals(){
+  const rows=db.approvals.map(a=>`
+    <tr>
+      <td>${escapeHtml(a.date||'')}</td>
+      <td>${escapeHtml(labelEquip(a.equipId))}</td>
+      <td>${escapeHtml(a.issue||'')}</td>
+      <td>${escapeHtml(a.doneBy||'—')} (${escapeHtml(a.role||'—')})</td>
+      <td>${escapeHtml(fmtMinutes(a.durationMin||0))}</td>
+      <td>${escapeHtml(a.comment||'—')}</td>
+      <td>${(a.helpers||[]).length ? escapeHtml(a.helpers.map(userDisplay).join(', ')) : '—'}</td>
+      <td class="right">
+        <button class="btn green" data-ok="${a.id}">Patvirtinti</button>
+        <button class="btn red" data-no="${a.id}">Grąžinti</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="8" class="muted">Nėra laukiančių</td></tr>';
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Patvirtinimai</h3>
+      <table>
+        <thead><tr><th>Data</th><th>Technika</th><th>Darbas</th><th>Atliko</th><th>Laikas</th><th>Komentaras</th><th>Padėjo</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+function bindAdminApprovals(){
+  document.querySelectorAll('[data-ok]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.getAttribute('data-ok');
+      const idx=db.approvals.findIndex(x=>x.id===id);
+      if(idx<0) return;
+      const a=db.approvals[idx];
+
+      let progressLog = [];
+      if(a.taskId){
+        const tTask = db.tasks.find(x=>x.id===a.taskId);
+        if(tTask && tTask.progressLog){
+          progressLog = tTask.progressLog.slice();
+        }
+      }
+
+      db.approvals.splice(idx,1);
+
+      db.completed.unshift({
+        id:rid(),
+        equipId:a.equipId,
+        title:a.issue,
+        date:a.date,
+        durationMin:a.durationMin||0,
+        doneBy:a.doneBy,
+        doneById:a.doneById,
+        role:(a.role==='mechanikas'?'mechanic':'operator'),
+        comment:a.comment||'',
+        helpers:a.helpers||[],
+        progressLog: progressLog
+      });
+
+      if(a.taskId){
+        const t=db.tasks.find(x=>x.id===a.taskId);
+        if(t) t.status='Užbaigta';
+      }
+      saveDB(db);
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-no]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.getAttribute('data-no');
+      const idx=db.approvals.findIndex(x=>x.id===id);
+      if(idx<0) return;
+      const a=db.approvals[idx];
+      db.approvals.splice(idx,1);
+      db.tasks.unshift({ id:rid(), equipId:a.equipId, title:'Grąžinta: '+a.issue, status:'Nauja', assignedTo:[], shared:true, source:'admin', createdAt:Date.now() });
+      saveDB(db);
+      render();
+    };
+  });
+}
+
+/* ADMIN – NOTES (vadovas) */
+function adminNotes(){
+  const rows = (db.notes||[])
+    .filter(n => n.status !== 'task') // 🔥 NEBERODOM PAVERSTŲ
+    .map(n=>{
+
+      const isTask = n.status === 'task';
+      const statusLabel = isTask ? 'Paversta į užduotį (vykdoma)' : 'Atvira pastaba';
+
+      return `
+        <div class="card danger">
+          <div class="muted">
+            ${escapeHtml(labelEquip(n.equipId))} • ${escapeHtml(n.date || '—')} • Paliko: ${escapeHtml(n.author || '—')}
+          </div>
+          <b>${escapeHtml(n.text)}</b>
+          <div class="muted" style="margin-top:4px;font-size:12px">
+            Statusas: ${statusLabel}
+          </div>
+          <div class="right" style="margin-top:10px">
+            <button class="btn primary" data-nt="${n.id}" ${isTask ? 'disabled' : ''}>
+              Paversti užduotimi
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  return `
+    <div class="card">
+      <h3 style="margin:0">Pastabos</h3>
+    </div>
+    ${rows || `<div class="muted">Pastabų nėra</div>`}
+  `;
+}
+
+function bindAdminNotes(user){
+  document.querySelectorAll('[data-nt]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = btn.getAttribute('data-nt');
+      const note = db.notes.find(n=>n.id===id);
+      if(!note) return;
+
+      document.getElementById('ntTitle').value = note.text;
+      document.getElementById('ntComment').value = '';
+
+      const mechSel = document.getElementById('ntMechs');
+      mechSel.innerHTML = usersByRole('mechanic')
+        .map(m=>`<option value="${m.id}">${escapeHtml(m.display||m.username)}</option>`)
+        .join('');
+
+      const modal = document.getElementById('noteToTaskModal');
+      modal.classList.remove('hidden');
+
+      document.getElementById('ntCancel').onclick = ()=>{
+        modal.classList.add('hidden');
+      };
+
+      // Create
+      document.getElementById('ntCreate').onclick = ()=>{
+        const title = safeTrim(document.getElementById('ntTitle').value) || 'Užduotis';
+        const comment = safeTrim(document.getElementById('ntComment').value);
+        const mechList = Array.from(mechSel.selectedOptions).map(o=>o.value);
+
+        const newTask = {
+          id: rid(),
+          equipId: note.equipId,
+          title,
+          status:'Nauja',
+          source:'from-note',
+          shared: mechList.length === 0,
+          assignedTo: mechList,
+          createdAt: Date.now(),
+          initialComment: comment,
+          fromNoteId: id
+        };
+
+        db.tasks.unshift(newTask);
+
+        // pažymim pačią pastabą, kad ji jau paversta į užduotį
+        note.status = 'task';
+        note.linkedTaskId = newTask.id;
+
+        saveDB(db);
+
+        document.getElementById('noteToTaskModal').classList.add('hidden');
+
+        alert('Užduotis sukurta iš pastabos');
+        render();
+      };
+
+    };
+  });
+}
+
+/* HISTORY – helper kortelės */
+function historyCards(items){
+  const sorted = items.slice().sort((a,b)=> (a.date||'') < (b.date||'') ? 1 : -1);
+
+  return sorted.map(c=>{
+    const baseInfo = `
+      <div class="muted">${escapeHtml(labelEquip(c.equipId))} • ${escapeHtml(c.date||'')}</div>
+      <b>${escapeHtml(c.title||'')}</b>
+      <div class="muted" style="font-size:13px">
+        Atliko: ${escapeHtml(c.doneBy||'—')} (${escapeHtml(c.role||'—')})
+        ${c.durationMin ? ' • Trukmė: '+escapeHtml(fmtMinutes(c.durationMin)) : ''}
+      </div>
+      ${c.comment ? `<div style="margin-top:4px">${escapeHtml(c.comment||'')}</div>` : ''}
+      ${(c.helpers||[]).length
+        ? `<div class="muted" style="font-size:12px;margin-top:2px">Padėjo: ${escapeHtml(c.helpers.map(userDisplay).join(', '))}</div>`
+        : ''
+      }
+    `;
+    const prog = c.progressLog || [];
+    const progHtml = prog.length ? `
+      <div class="muted" style="margin-top:6px;font-size:12px">
+        Komentarų istorija:
+        ${prog.map(p=>`
+          <div>• ${escapeHtml(p.date||'')} — ${escapeHtml(p.byName||'')} : ${escapeHtml(p.text||'')}</div>
+        `).join('')}
+      </div>
+    ` : '';
+    return `<div class="card">${baseInfo}${progHtml}</div>`;
+  }).join('');
+}
+
+/* ADMIN – HISTORY (dublis, bet galioja paskutinė versija) */
+function adminHistory(){
+  const eqOpts = (db.equipment || [])
+    .map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
+    .join('');
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Remonto istorija</h3>
+
+      <div class="row row-3" style="margin-bottom:8px">
+        <div>
+          <div class="muted">Technika</div>
+          <select id="hEquip">
+            <option value="">Visa technika</option>
+            ${eqOpts}
+          </select>
+        </div>
+        <div>
+          <div class="muted">Nuo datos</div>
+          <input type="date" id="hFrom">
+        </div>
+        <div>
+          <div class="muted">Iki datos</div>
+          <input type="date" id="hTo">
+        </div>
+      </div>
+
+      <div class="right" style="margin-bottom:8px">
+        <button class="btn" id="hClear" type="button">Išvalyti</button>
+        <button class="btn primary" id="hFilter" type="button">Filtruoti</button>
+      </div>
+
+      <div class="muted" style="font-size:12px;margin-bottom:8px">
+        Filtruojama pagal patvirtinimo datą (stulpelis „Data“).
+      </div>
+
+      <div id="hBody">
+        ${historyCards(db.completed || [])}
+      </div>
+    </div>
+  `;
+}
+function bindAdminHistory(){
+  const eqSel = document.getElementById('hEquip');
+  const fromEl = document.getElementById('hFrom');
+  const toEl   = document.getElementById('hTo');
+  const body   = document.getElementById('hBody');
+  const fBtn   = document.getElementById('hFilter');
+  const cBtn   = document.getElementById('hClear');
+
+  if(!body) return;
+
+  function applyFilter(){
+    const eq   = eqSel ? eqSel.value : '';
+    const from = fromEl ? fromEl.value : '';
+    const to   = toEl ? toEl.value : '';
+
+    let items = (db.completed || []).slice();
+
+    items = items.filter(c=>{
+      if(eq && c.equipId !== eq) return false;
+      if(from && (!c.date || c.date < from)) return false;
+      if(to   && (!c.date || c.date > to))   return false;
+      return true;
+    });
+
+    body.innerHTML = historyCards(items);
+  }
+
+  if(fBtn) fBtn.onclick = applyFilter;
+
+  if(cBtn){
+    cBtn.onclick = ()=>{
+      if(eqSel) eqSel.value = '';
+      if(fromEl) fromEl.value = '';
+      if(toEl) toEl.value = '';
+      applyFilter();
+    };
+  }
+}
+function getChecklistForEquip(eid){
+  if(db.checklistsByEquip && db.checklistsByEquip[eid]){
+    return db.checklistsByEquip[eid];
+  }
+  if(db.checklistsByEquip && db.checklistsByEquip._default){
+    return db.checklistsByEquip._default;
+  }
+  return operatorChecklistDefaults(); // fallback
+}
+
+/* OPERATOR LOGIKA */
+function operatorChecklistDefaults(){
+  return [
+    'Variklio tepalas','Hidraulikos tepalas','Greičių dėžės tepalas','Aušinimo skystis',
+    'Langų apiplovimo skystis','Tepimo bakelio papildymas','Vizualinė apžiūra: mašinos',
+    'Vizualinė apžiūra: hidraulinių žarnų','Vizualinė apžiūra: ratų','Rankinis tepimo taškų pratepimas','Pridėti nuo savęs'
+  ];
+}
+function ensureOperatorData(){
+  if(!db.session) db.session = {};
+  if(!db.session.opView) db.session.opView = 'home';
+    // PRISKIRIAM TECHNIKĄ
+// 🔒 TECHNIKA PRIRIŠTA PRIE PLANŠETĖS
+
+
+  if(!db.session.opRunningByEquip) db.session.opRunningByEquip = {}; // equipId -> taskId
+
+  // NAUJA: per-technikų checklist’ai
+  if(!db.checklistsByEquip) db.checklistsByEquip = {};
+
+  // senas laukas - kad nesulūžtų sena info (jei buvo)
+  if(db.checklistFields && Array.isArray(db.checklistFields) && db.checklistFields.length){
+    db.checklistsByEquip._default = db.checklistFields.slice();
+    delete db.checklistFields;
+  }
+
+  if(!db.checklistsByEquip._default || !db.checklistsByEquip._default.length){
+    db.checklistsByEquip._default = operatorChecklistDefaults();
+  }
+
+  if(!db.plans) db.plans = {}; // plans[equipId] = [{id,type,at,note}]
+}
+function getChecklistFieldsFor(eid){
+  if(!db.checklistsByEquip) db.checklistsByEquip = {};
+
+  const byEquip = db.checklistsByEquip;
+
+  // jei konkrečiai technikai yra savo sąrašas – naudojam jį
+  if(byEquip[eid] && Array.isArray(byEquip[eid]) && byEquip[eid].length){
+    return byEquip[eid];
+  }
+
+  // kitaip – default
+  if(byEquip._default && Array.isArray(byEquip._default) && byEquip._default.length){
+    return byEquip._default;
+  }
+
+  // visiškai „ant plyno“ – fallback į seną funkciją
+  return operatorChecklistDefaults();
+}
+
+function getChecklistFieldsFor(eid){
+  if(!db.checklistsByEquip) db.checklistsByEquip = {};
+
+  const byEquip = db.checklistsByEquip;
+
+  // jei konkrečiai technikai yra savo sąrašas – naudojam jį
+  if(byEquip[eid] && Array.isArray(byEquip[eid]) && byEquip[eid].length){
+    return byEquip[eid];
+  }
+
+  // kitaip – default
+  if(byEquip._default && Array.isArray(byEquip._default) && byEquip._default.length){
+    return byEquip._default;
+  }
+
+  // visiškai „ant plyno“ – fallback į seną funkciją
+  return operatorChecklistDefaults();
+}
+
+function operatorPlansHtml(eid){
+  const arr=(db.plans && db.plans[eid]) ? db.plans[eid] : [];
+  if(!arr.length) return '<div class="muted">Nėra suplanuotų darbų</div>';
+  const sorted = arr.slice().sort((a,b)=> (a.at||'')>(b.at||'') ? 1 : -1);
+  return sorted.map(p=>`
+    <div class="card" style="padding:10px;margin-top:6px">
+      <div class="muted">${escapeHtml(p.type||'—')}</div>
+      <b>${escapeHtml(fmt(p.at))}</b>
+      <div class="muted">${escapeHtml(p.note||'')}</div>
+    </div>`).join('');
+}
+function operatorNotesRows(eid){
+  const rows=(db.notes||[])
+    .filter(n=>n.equipId===eid)
+    .sort((a,b)=> (a.date||'')<(b.date||'') ? 1 : -1)
+    .map(n=>`
+      <tr>
+        <td>${escapeHtml(n.date||'—')}</td>
+        <td>
+          ${n.type==='check'
+            ? `<b style="color:#b91c1c">${escapeHtml(n.text)}</b>`
+            : escapeHtml(n.text||'')
+          }
+        </td>
+        <td>${escapeHtml(n.author||'—')}</td>
+      </tr>`).join('');
+  return rows || '<tr><td colspan="3" class="muted">Nėra įrašų</td></tr>';
+}
+/* OPERATOR LOGIKA */
+function renderOperator(root,user){
+  ensureOperatorData();
+
+  let view = db.session.opView || 'home';
+  const eid  = db.session.opEquipId || (db.equipment[0] ? db.equipment[0].id : null);
+
+  // jeigu šiai technikai vyksta remontas – priverstinai rodome REMONTAS vaizdą
+  const runningId = db.session.opRunningByEquip?.[eid] || null;
+  if (runningId && view !== 'repair' && view !== 'password') {
+    view = 'repair';
+    db.session.opView = 'repair';
+    saveDB(db);
+  }
+
+  const rootHtml = `
+    <div class="card">
+      <div class="headerline">
+        <img src="img/logo.png" style="height:60px">
+        <div class="right">
+          <span class="pill">${escapeHtml(user.display||user.username)}</span>
+          <button class="btn" id="opPw" type="button">Slaptažodis</button>
+          <button class="btn" id="logout" type="button">Atsijungti</button>
+        </div>
+      </div>
+    </div>
+    <div id="opBody"></div>
+  `;
+  root.innerHTML = rootHtml;
+
+  document.getElementById('logout').onclick = logout;
+  document.getElementById('opPw').onclick = () => {
+    db.session.opView = 'password';
+    saveDB(db);
+    render();
+  };
+
+  const body = document.getElementById('opBody');
+  if (!body) return;
+
+  /* HOME */
+  if (view === 'home') {
+    body.innerHTML = `
+      <div class="card">
+        <div class="headerline">
+          <h3 style="margin:0">${escapeHtml(labelEquip(eid))}</h3>
+          <span class="pill">Operatorius: ${escapeHtml(user.display||user.username)}</span>
+        </div>
+
+        <div class="row row-2" style="margin-top:10px">
+          <button class="btn green" id="opCheck">MAŠINOS PATIKRA</button>
+          <button class="btn primary" id="opRep">REMONTAS</button>
+        </div>
+
+        <div style="margin-top:8px">
+          <button class="btn" id="opHist">ISTORIJA / PASTABOS</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Suplanuota</h3>
+        ${operatorPlansHtml(eid)}
+      </div>
+    `;
+
+    if (db.session.opRunningByEquip?.[eid]) {
+      ensureOpReminder(eid);
+    }
+
+    document.getElementById('opCheck').onclick = () => {
+      db.session.opView = 'check';
+      saveDB(db);
+      render();
+    };
+    document.getElementById('opRep').onclick = () => {
+      db.session.opView = 'repair';
+      saveDB(db);
+      render();
+    };
+    document.getElementById('opHist').onclick = () => {
+      db.session.opView = 'history';
+      saveDB(db);
+      render();
+    };
+
+    return;
+  }
+
+  /* CHECKLIST (kasdienė patikra) */
+  if (view === 'check') {
+    const fields = getChecklistForEquip(eid);
+
+    body.innerHTML = `
+      <div class="card">
+        <button class="btn" id="opBack1">← Atgal</button>
+        <h3>Kasdienė patikra</h3>
+        <div class="muted" style="margin-top:-6px;margin-bottom:8px">
+          NOT OK – pridėkite komentarą, jis atsiras „Istorija / pastabos“ ir matysis vadovui.
+        </div>
+        <div id="chkWrap"></div>
+        <div class="right" style="margin-top:10px">
+          <button class="btn primary" id="opSaveCheck">Išsaugoti patikrą</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('opBack1').onclick = () => {
+      db.session.opView = 'home';
+      saveDB(db);
+      render();
+    };
+
+    const wrap = document.getElementById('chkWrap');
+    wrap.innerHTML = fields.map((f,i)=>`
+  <div class="card chkCard" data-i="${i}" data-status="none">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div>
+        ${escapeHtml(f)}
+        <div class="muted" style="font-size:12px;margin-top:2px">
+          (Privaloma: pasirink OK arba NOT OK)
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn okBtn" data-i="${i}">OK</button>
+        <button type="button" class="btn red nokBtn" data-i="${i}">NOT OK</button>
+      </div>
+    </div>
+    <div class="hidden" id="note-${i}" style="margin-top:8px">
+      <textarea class="narea" data-i="${i}" placeholder="Komentaras šiam punktui… (privaloma jei NOT OK)"></textarea>
+    </div>
+  </div>
+`).join('');
+
+
+    // mygtukų logika (OK / NOT OK)
+    wrap.onclick = (ev) => {
+    const ok = ev.target.closest('.okBtn');
+    const nok = ev.target.closest('.nokBtn');
+    if (!ok && !nok) return;
+
+    const btn = ok || nok;
+    const idx = btn.getAttribute('data-i');
+
+    const card = btn.closest('.chkCard');
+    const okBtn  = card ? card.querySelector('.okBtn') : null;
+    const nokBtn = card ? card.querySelector('.nokBtn') : null;
+    const note   = card ? card.querySelector('#note-' + idx) : null;
+
+    // nuimam "privaloma" raudoną, kai žmogus pasirinko
+    if(card) card.classList.remove('req-miss');
+
+    if (ok) {
+    if (okBtn)  okBtn.classList.add('pressed','green');
+    if (nokBtn) nokBtn.classList.remove('pressed');
+    if (note)   note.classList.add('hidden');
+    if (card)   card.dataset.status = 'ok';
+   } else {
+    if (nokBtn) nokBtn.classList.add('pressed');
+    if (okBtn)  okBtn.classList.remove('pressed','green');
+    if (note)   note.classList.remove('hidden');
+    if (card)   card.dataset.status = 'nok';
+   }
+};
+
+
+    // patikros išsaugojimas
+document.getElementById('opSaveCheck').onclick = () => {
+  const cards = Array.from(body.querySelectorAll('.chkCard'));
+  let hasError = false;
+
+  // 1) Patikrinam ar visi punktai pažymėti
+  for (const card of cards) {
+    const status = card.dataset.status || 'none';
+    const idx = card.getAttribute('data-i');
+
+    // jei nepasirinko OK/NOT OK
+    if (status === 'none') {
+      card.classList.add('req-miss');
+      hasError = true;
+      continue;
+    }
+
+    // 2) jei NOT OK – privalomas komentaras
+    if (status === 'nok') {
+      const ta = card.querySelector('.narea');
+      const val = safeTrim(ta ? ta.value : '');
+      if (!val) {
+        card.classList.add('req-miss');
+        hasError = true;
+      }
+    }
+  }
+
+  if (hasError) {
+    alert('❗ Negalima išsaugoti: visi punktai turi būti pažymėti OK arba NOT OK. Jei NOT OK – būtina pastaba.');
+    // nurolinam iki pirmo blogo
+    const firstBad = body.querySelector('.req-miss');
+    if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // 3) Jei viskas OK – įrašom tik NOT OK su komentarais (kaip darai dabar)
+  const fields = getChecklistForEquip(eid);
+  let added = 0;
+
+  cards.forEach(card => {
+    const idx = card.getAttribute('data-i');
+    const status = card.dataset.status;
+
+    if (status === 'nok') {
+      const ta = card.querySelector('.narea');
+      const val = safeTrim(ta ? ta.value : '');
+      const point = fields[idx] || 'Nežinomas punktas';
+
+      db.notes.unshift({
+        id: rid(),
+        equipId: eid,
+        date: today(),
+        text: `❌ ${point} – ${val}`,
+        author: (user.display || user.username),
+        type: 'check',
+        checklistPoint: point
+      });
+
+      added++;
+    }
+  });
+
+  alert('✅ Patikra išsaugota.' + (added ? (' NOT OK įrašų: ' + added) : ''));
+  db.session.opView = 'home';
+  saveDB(db);
+  render();
+};
+
+
+    return;
+  }
+
+  /* REMONTAS (operatorius) */
+  if (view === 'repair') {
+    const runningId = db.session.opRunningByEquip[eid] || null;
+    const runningTask = runningId ? (db.tasks||[]).find(t=>t.id===runningId) : null;
+
+    body.innerHTML = `
+      <div class="card">
+        <button class="btn" id="opBack2" ${runningTask ? 'disabled' : ''}>← Atgal</button>
+
+        <h3>Remonto registracija</h3>
+
+        <div class="muted">Trumpai aprašykite gedimą…</div>
+        <textarea id="repTxt" placeholder="Pvz.: sunkiai suka, tepalas bėga…">
+${escapeHtml(runningTask ? (runningTask.title || '') : '')}</textarea>
+
+        <div class="row row-2" style="margin-top:8px">
+          <div>
+            <div class="muted">Pradžia (HH:MM)</div>
+            <input id="repStart" placeholder="${escapeHtml(nowHM())}">
+          </div>
+          <div class="right" style="align-items:flex-end">
+            <button class="btn" id="repStartBtn" ${runningTask ? 'disabled' : ''}>Pradėti</button>
+            <button class="btn primary" id="repFinishBtn" ${runningTask ? '' : 'disabled'}>Remonto pabaiga</button>
+          </div>
+        </div>
+
+        <div class="muted" style="margin-top:8px">
+          ${runningTask
+            ? 'Vykdomas remontas matomas mechanikams ir vadovui.'
+            : 'Po „Pradėti“ remontas bus matomas mechanikams ir vadovui (raudonas, viršuje).'}
+        </div>
+      </div>
+    `;
+
+    document.getElementById('opBack2').onclick = () => {
+      db.session.opView = 'home';
+      saveDB(db);
+      render();
+    };
+
+    const startBtn = document.getElementById('repStartBtn');
+    const finBtn   = document.getElementById('repFinishBtn');
+
+    if (startBtn) {
+      startBtn.onclick = () => {
+        const title    = safeTrim(document.getElementById('repTxt')?.value) || 'Operatoriaus remontas';
+        const startVal = safeTrim(document.getElementById('repStart')?.value) || nowHM();
+
+        const task = {
+          id: rid(),
+          equipId: eid,
+          title,
+          status: 'Vykdoma',
+          source: 'op-repair',
+          shared: true,
+          assignedTo: [],
+          startedAt: Date.now(),
+          startHM: startVal
+        };
+
+        db.tasks.unshift(task);
+        db.session.opRunningByEquip[eid] = task.id;
+
+        saveDB(db);
+        ensureOpReminder(eid);
+
+        alert('Remontas pradėtas.');
+        render();
+      };
+    }
+
+    if (finBtn) {
+      finBtn.onclick = () => {
+        const taskId = db.session.opRunningByEquip[eid];
+        if (!taskId) {
+          alert('Remontas nepradėtas.');
+          return;
+        }
+        const task = (db.tasks||[]).find(t=>t.id===taskId);
+        if (task) task.status = 'Laukia patvirtinimo';
+
+        db.approvals.unshift({
+          id: rid(),
+          taskId: taskId,
+          equipId: eid,
+          issue: task ? task.title : 'Remonto pabaiga',
+          date: today(),
+          start: (document.getElementById('repStart').value || nowHM()),
+          durationMin: 30,
+          doneBy: (user.display || user.username),
+          role: 'operatorius',
+          comment: ''
+        });
+
+        delete db.session.opRunningByEquip[eid];
+        if (opReminderTimer) {
+          clearInterval(opReminderTimer);
+          opReminderTimer = null;
+        }
+
+        alert('Išsiųsta patvirtinimui.');
+        saveDB(db);
+        render();
+      };
+    }
+
+    return;
+  }
+
+  /* ISTORIJA / PASTABOS */
+  if (view === 'history') {
+    body.innerHTML = `
+      <div class="card">
+        <button class="btn" id="opBack3">← Atgal</button>
+        <h3>ISTORIJA / PASTABOS</h3>
+
+        <div class="row row-2" style="margin-top:10px">
+          <div>
+            <div class="muted">Nauja pastaba (nebūtina)</div>
+            <textarea id="newNote" placeholder="Trumpai..."></textarea>
+          </div>
+          <div class="right" style="align-items:flex-end">
+            <button class="btn primary" id="addNote">Pridėti</button>
+          </div>
+        </div>
+
+        <table style="margin-top:10px">
+          <thead>
+            <tr><th>Data</th><th>Gedimas / Pastaba</th><th>Kas paliko</th></tr>
+          </thead>
+          <tbody>${operatorNotesRows(eid)}</tbody>
+        </table>
+      </div>
+    `;
+
+    document.getElementById('opBack3').onclick = () => {
+      db.session.opView = 'home';
+      saveDB(db);
+      render();
+    };
+
+    document.getElementById('addNote').onclick = () => {
+      const v = (document.getElementById('newNote').value || '').trim();
+      if (!v) return;
+      db.notes.unshift({
+        id: rid(),
+        equipId: eid,
+        date: today(),
+        text: v,
+        author: (user.display || user.username),
+        type: 'note'
+      });
+      document.getElementById('newNote').value = '';
+      saveDB(db);
+      render();
+    };
+
+    return;
+  }
+
+  /* OPERATORIAUS SLAPTAŽODIS */
+  if (view === 'password') {
+    body.innerHTML = changePasswordUI(user);
+    bindChangePassword(user);
+    return;
+  }
+
+  // jeigu kažkas užlūžo – grąžinam į HOME
+  db.session.opView = 'home';
+  saveDB(db);
+  render();
+}
+
+
+/* MECHANIKAS */
+function renderMechanic(root,user){
+  const view=db.session.mechView||'tasks';
+  root.innerHTML=`
+    <div class="card">
+      <div class="headerline">
+        <h2 style="margin:0">VKR • Mechanikas</h2>
+        <div class="right">
+          <span class="pill">${escapeHtml(user.display||user.username)}</span>
+          <button class="btn" id="mPw">Slaptažodis</button>
+          <button class="btn" id="logout">Atsijungti</button>
+        </div>
+      </div>
+      <div class="tabs" style="margin-top:10px">
+        ${tabBtn('tasks','Užduotys',view)}
+        ${tabBtn('lube','Tepimai',view)}
+        ${tabBtn('notes','Pastabos',view)}
+        ${tabBtn('password','Slaptažodis',view)}
+      </div>
+    </div>
+    <div id="mMid"></div>
+  `;
+  document.getElementById('logout').onclick=logout;
+  document.getElementById('mPw').onclick=()=>{ db.session.mechView='password'; saveDB(db); render(); };
+
+  document.querySelectorAll('[data-tab]').forEach(b=>{
+    b.onclick=()=>{ db.session.mechView=b.getAttribute('data-tab'); saveDB(db); render(); };
+  });
+
+  const mid=document.getElementById('mMid');
+  if(view==='tasks'){ mid.innerHTML=mechanicTasks(user); bindMechanicTasks(user); }
+  if(view==='lube'){ mid.innerHTML=mechanicLube(user); bindMechanicLube(user); }
+  if(view==='notes'){ mid.innerHTML=mechanicNotes(user); bindMechanicNotes(user); }
+  if(view==='password'){ mid.innerHTML=changePasswordUI(user); bindChangePassword(user); }
+}
+
+/* MECH – TASKS */
+function mechanicTasks(user){
+  const myId = user.id;
+
+  // VISŲ matomų užduočių sąrašas
+  const allVisible = mechanicVisibleTasks(myId);
+
+  // 1) Rūšiuojam: naujausios viršuje
+  const active = sortNewestFirst(allVisible);
+
+  // 2) Nematytos (SEEN dar nespaustos)
+  const unseen = active.filter(t => !isSeen(t, myId));
+
+  const alarmHtml = unseen.length ? `
+    <div class="card danger blink" style="padding:10px">
+      <div class="alarm">🚨 Nematytos užduotys: ${unseen.length}</div>
+      <div class="muted" style="margin-top:6px;font-size:12px">
+        Informacija. SEEN spaudžiama prie konkrečios užduoties.
+      </div>
+    </div>
+  ` : '';
+
+  const mechUsers = usersByRole('mechanic');
+
+  const cards = active.length ? active.map(t=>{
+    const isUnseen = !isSeen(t, myId);
+
+    // BŪTINA: kortelės klasė – raudona + mirksėjimas jei nematyta
+    const cardCls = 'card danger' + (isUnseen ? ' blink' : '');
+
+    const helpersOptions = mechUsers
+      .filter(m=>m.id!==myId)
+      .map(m=>`<option value="${m.id}">${escapeHtml(m.display||m.username)}</option>`)
+      .join('');
+
+    const progress = t.progressLog || [];
+    const progressHtml = progress.length ? `
+      <div class="muted" style="margin-top:10px;font-size:12px">
+        Ankstesni komentarai:
+        ${progress.map(p => `
+          <div>• ${escapeHtml(p.date)} — ${escapeHtml(p.byName)}: ${escapeHtml(p.text)}</div>
+        `).join('')}
+      </div>
+    ` : '';
+
+    return `
+      <div class="${cardCls}">
+        <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
+        <b>${escapeHtml(t.title)}</b>
+
+        ${t.initialComment
+          ? `<div class="muted" style="margin-top:4px;font-style:italic">
+               Komentaras: ${escapeHtml(t.initialComment)}
+             </div>`
+          : ''
+        }
+
+        <div class="muted" style="margin-top:4px">
+          Statusas: ${escapeHtml(t.status || '—')}
+          ${isUnseen ? ' • NEMATYTA' : ''}
+        </div>
+
+        <div class="muted">
+          Priskirta: ${t.shared
+            ? 'Bendra visiems'
+            : ((t.assignedTo||[]).map(userDisplay).join(', ')||'—')}
+        </div>
+        <div class="muted" style="font-size:12px">
+        ${escapeHtml(seenInfo(t))}
+        
+      </div>
+      
+      ${progressHtml}
+
+        <div style="margin-top:10px">
+          <div class="muted">Komentaras (nebūtina)</div>
+          <textarea class="mechComment" data-id="${t.id}" placeholder="Komentaras apie atliktą darbą…"></textarea>
+        </div>
+
+        <div style="margin-top:10px">
+          <div class="muted">Padėję mechanikai (jei buvo)</div>
+          <select class="helperSelect" data-id="${t.id}" multiple>
+            ${helpersOptions || '<option disabled>(nėra kitų mechanikų)</option>'}
+          </select>
+          <div class="muted" style="font-size:12px;margin-top:2px">
+            Laikyk CTRL (arba Cmd), kad pažymėtum kelis.
+          </div>
+        </div>
+
+        <div class="right" style="margin-top:6px">
+          <button class="btn" data-seen="${t.id}">SEEN</button>
+          <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
+          <button class="btn green" data-done="${t.id}">Baigta (siųsti patvirtinimui)</button>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div class="card muted">Aktyvių užduočių nėra</div>';
+
+  return `
+    ${alarmHtml}
+    <div class="card">
+      <h3 style="margin-top:0">Užduotys</h3>
+      ${cards}
+    </div>
+  `;
+}
+
+function bindMechanicTasks(user){
+  document.querySelectorAll('[data-seen]').forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute('data-seen');
+      const t = db.tasks.find(x=>x.id===id);
+      if(!t) return;
+      if(!t.seenBy) t.seenBy = {};
+      t.seenBy[user.id] = Date.now();
+      saveDB(db);
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-st]').forEach(b=>{
+    b.onclick=()=>{
+      const [id,st]=b.getAttribute('data-st').split('|');
+      const t=db.tasks.find(x=>x.id===id);
+      if(!t) return;
+
+      if(st === 'Vykdoma'){
+        const card = b.closest('.card');
+        const ta = card ? card.querySelector('.mechComment') : null;
+        const comment = ta ? safeTrim(ta.value) : '';
+
+        if(comment){
+          if(!t.progressLog) t.progressLog = [];
+          t.progressLog.push({
+            id: rid(),
+            date: fmt(Date.now()),
+            byId: user.id,
+            byName: (user.display || user.username),
+            text: comment
+          });
+          ta.value = '';
+        }
+      }
+
+      t.status=st;
+      saveDB(db);
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-done]').forEach(b=>{
+    b.onclick=()=>{
+      const id=b.getAttribute('data-done');
+      const t=db.tasks.find(x=>x.id===id);
+      if(!t) return;
+
+      const card = b.closest('.card');
+      const ta = card ? card.querySelector('.mechComment') : null;
+      const comment = ta ? safeTrim(ta.value) : '';
+
+      if(comment){
+        if(!t.progressLog) t.progressLog = [];
+        t.progressLog.push({
+          id: rid(),
+          date: fmt(Date.now()),
+          byId: user.id,
+          byName: (user.display || user.username),
+          text: comment
+        });
+      }
+
+      const sel = card ? card.querySelector('.helperSelect') : null;
+      const helpers = sel ? Array.from(sel.selectedOptions).map(o=>o.value) : [];
+
+      t.status='Laukia patvirtinimo';
+
+      db.approvals.unshift({
+        id: rid(),
+        taskId: t.id,
+        equipId: t.equipId,
+        issue: t.title,
+        date: today(),
+        start: nowHM(),
+        durationMin: 30,
+        doneBy: (user.display||user.username),
+        doneById: user.id,
+        role: 'mechanikas',
+        comment: comment,
+        initialComment: t.initialComment || '',
+        helpers: helpers
+      });
+
+      saveDB(db);
+      render();
+    };
+  });
+
+  const create=document.getElementById('mCreate');
+  if(create){
+    create.onclick=()=>{
+      const equipId=document.getElementById('mEq').value;
+      const title=safeTrim(document.getElementById('mTitle').value)||'Užduotis';
+      db.tasks.unshift({
+        id: rid(),
+        equipId: equipId,
+        title: title,
+        status: 'Nauja',
+        source: 'operator-report',
+        reportedBy: user.display||user.username,
+        reportedAt: Date.now()
+      });
+
+      saveDB(db);
+      render();
+    };
+  }
+}
+
+/* MECH – NOTES (mechanikas) */
+function mechanicNotes(user){
+  const list = (db.notes || []).filter(n => n.status !== 'task');
+
+
+  const rows = list.length ? list.map(n=>{
+    const isTask = n.status === 'task';
+    const statusText = isTask ? 'Paversta į užduotį (vykdoma)' : 'Atvira pastaba';
+
+    return `
+      <div class="card danger">
+        <div class="muted">
+          ${escapeHtml(labelEquip(n.equipId))} • ${escapeHtml(n.date || '—')} • Paliko: ${escapeHtml(n.authorName||n.author||'—')}
+        </div>
+        <b>${escapeHtml(n.text)}</b>
+        <div class="muted" style="margin-top:4px;font-size:12px">
+          Statusas: ${statusText}
+        </div>
+
+        <div class="right" style="margin-top:6px">
+          <button class="btn primary" data-note-task="${n.id}" ${isTask ? 'disabled' : ''}>
+            Paversti užduotimi
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div class="muted">Pastabų nėra</div>';
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Pastabos</h3>
+    </div>
+    ${rows}
+  `;
+}
+
+function bindMechanicNotes(user){
+  document.querySelectorAll('[data-note-task]').forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute('data-note-task');
+      const note = (db.notes || []).find(n => n.id === id);
+      if(!note) return;
+
+      // jei jau paversta – nieko nebedarom
+      if(note.status === 'task'){
+        alert('Ši pastaba jau paversta į užduotį.');
+        return;
+      }
+
+      const title = note.text ? note.text.slice(0,120) : 'Užduotis pagal pastabą';
+
+      // mechaniko komentaras, kai verčia pastabą į užduotį
+      const extraComment = prompt('Komentaras (nebūtina, pvz. ką tiksliai atlikti):','') || '';
+
+      const newTask = {
+        id: rid(),
+        equipId: note.equipId,
+        title,
+        status: 'Nauja',
+        shared: true,
+        assignedTo: [],
+        source: 'note',
+        fromNoteId: note.id,
+        reportedBy: user.display || user.username,
+        reportedAt: Date.now(),
+        initialComment: extraComment
+      };
+
+      db.tasks.unshift(newTask);
+
+      note.status = 'task';
+      note.linkedTaskId = newTask.id;
+
+      saveDB(db);
+      render();
+    };
+  });
+}
+
+
+/* MECH – LUBE */
+function mechanicLube(user){
+  if(!db.lube) db.lube = {};
+  if(!db.grabs) db.grabs = [];
+
+  const eqOpts = (db.equipment||[])
+    .map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
+    .join('');
+
+  const grabOpts = (db.grabs||[])
+    .map(g=>`<option value="${g.id}">${escapeHtml(labelAssetForSelect(g.id))}</option>`)
+    .join('');
+
+  const assetOpts = `
+    <option value="">— Pasirink objektą —</option>
+    <optgroup label="Technika">
+      ${eqOpts || '<option disabled>(nėra technikos)</option>'}
+    </optgroup>
+    <optgroup label="Greiferiai">
+      ${grabOpts || '<option disabled>(nėra greiferių)</option>'}
+    </optgroup>
+  `;
+
+  const all=[];
+  Object.keys(db.lube||{}).forEach(assetId=>{
+    (db.lube[assetId]||[]).forEach(rec=> all.push({assetId, ...rec}));
+  });
+  all.sort((a,b)=> (a.date<b.date ? 1 : -1));
+
+  const lastRows = all.slice(0,60).map(r=>`
+    <tr>
+      <td>${escapeHtml(labelEquip(r.assetId) || r.assetId)}</td>
+      <td>${escapeHtml(parentOfAsset(r.assetId))}</td>
+      <td>${escapeHtml(r.date || '—')}</td>
+      <td>${escapeHtml(r.by || '—')}</td>
+      <td>${escapeHtml(r.note || '—')}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="5" class="muted">Įrašų dar nėra</td></tr>`;
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Tepimų registras</h3>
+      <div class="row row-3">
+        <div>
+          <div class="muted">Objektas</div>
+          <select id="mLubeAsset">${assetOpts}</select>
+        </div>
+        <div>
+          <div class="muted">Pastaba (nebūtina)</div>
+          <input id="mLubeNote" placeholder="Pvz.: NLGI-2, 10 taškų">
+        </div>
+        <div class="right" style="align-items:flex-end">
+          <button class="btn primary" id="mLubeDo" type="button">✓ Pažymėti, kad sutepta</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row row-3" style="margin-bottom:8px">
+        <div>
+          <div class="muted">Nuo datos</div>
+          <input type="date" id="lFrom">
+        </div>
+        <div>
+          <div class="muted">Iki datos</div>
+          <input type="date" id="lTo">
+        </div>
+        <div class="right" style="align-items:flex-end">
+          <button class="btn" id="lFilter" type="button">Filtruoti</button>
+          <button class="btn" id="lClear" type="button">Išvalyti</button>
+        </div>
+      </div>
+
+      <h3 style="margin-top:0">Paskutiniai tepimai</h3>
+      <table>
+        <thead><tr><th>Objektas</th><th>Priskirta technikai</th><th>Data</th><th>Kas teipė</th><th>Pastaba</th></tr></thead>
+        <tbody id="mLubeBody">${lastRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+function bindMechanicLube(user){
+  const btn = document.getElementById('mLubeDo');
+  const fBtn = document.getElementById('lFilter');
+  const cBtn = document.getElementById('lClear');
+
+  function rebuildTable(rows){
+    const body = document.getElementById('mLubeBody');
+    if(!body) return;
+
+    body.innerHTML = rows.map(r=>`
+      <tr>
+        <td>${escapeHtml(labelEquip(r.assetId) || r.assetId)}</td>
+        <td>${escapeHtml(parentOfAsset(r.assetId))}</td>
+        <td>${escapeHtml(r.date || '—')}</td>
+        <td>${escapeHtml(r.by || '—')}</td>
+        <td>${escapeHtml(r.note || '—')}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="5" class="muted">Nėra įrašų</td></tr>`;
+  }
+
+  function collectAll(){
+    const rows=[];
+    Object.keys(db.lube||{}).forEach(assetId=>{
+      (db.lube[assetId]||[]).forEach(r=> rows.push({assetId, ...r}));
+    });
+    rows.sort((a,b)=> (a.date < b.date ? 1 : -1));
+    return rows;
+  }
+
+  if(btn){
+    btn.onclick = ()=>{
+      if(!db.lube) db.lube = {};
+
+      const assetId = safeTrim(document.getElementById('mLubeAsset')?.value || '');
+      const note = safeTrim(document.getElementById('mLubeNote')?.value || '');
+
+      if(!assetId){
+        alert('Pasirink objektą.');
+        return;
+      }
+
+      if(!db.lube[assetId]) db.lube[assetId] = [];
+      db.lube[assetId].push({
+        date: today(),
+        by: (user.display||user.username),
+        byId: user.id,
+        note
+      });
+
+      const inp = document.getElementById('mLubeNote');
+      if(inp) inp.value = '';
+
+      saveDB(db);
+      rebuildTable(collectAll().slice(0,60));
+    };
+  }
+
+  if(fBtn){
+    fBtn.onclick = ()=>{
+      const from = document.getElementById('lFrom')?.value || '';
+      const to   = document.getElementById('lTo')?.value || '';
+
+      const rows = [];
+      Object.keys(db.lube||{}).forEach(assetId=>{
+        (db.lube[assetId]||[]).forEach(r=>{
+          if(from && r.date < from) return;
+          if(to && r.date > to) return;
+          rows.push({assetId, ...r});
+        });
+      });
+
+      rows.sort((a,b)=> (a.date < b.date ? 1 : -1));
+      rebuildTable(rows);
+    };
+  }
+
+  if(cBtn){
+    cBtn.onclick = ()=>{
+      const f=document.getElementById('lFrom'); if(f) f.value='';
+      const t=document.getElementById('lTo'); if(t) t.value='';
+      rebuildTable(collectAll().slice(0,60));
+    };
+  }
+}
+
+/* boot */
+(async function boot(){
+  // 1) jei online – pasiimam DB iš serverio ir perrašom lokalią
+  if(ONLINE){
+    try{
+      const serverDB = await apiGetDB();
+      if(serverDB && serverDB.version){
+        db = serverDB;
+        saveDB_local(db);
+      }
+    }catch(e){}
+  }
+
+  render();
+
+  // 2) kas 5s pasitikrinam ar serveris pasikeitė
+  if(ONLINE){
+    setInterval(async ()=>{
+      try{
+        const serverDB = await apiGetDB();
+        // labai paprastas palyginimas: jei skiriasi – perrašom
+        const localStr = JSON.stringify(db);
+        const servStr  = JSON.stringify(serverDB);
+        if(servStr && servStr !== localStr){
+          db = serverDB;
+          saveDB_local(db);
+          render();
+        }
+      }catch(e){}
+    }, SYNC_EVERY_MS);
+  }
+})();
+
+</script>
+
+<!-- bendras modalas pastabos pavertimui į užduotį (naudoja ir Admin, ir Mechanikas) -->
+<div id="noteToTaskModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Paversti pastabą užduotimi</h3>
+
+    <div class="muted">Užduoties pavadinimas</div>
+    <input id="ntTitle">
+
+    <div class="muted" style="margin-top:10px">Komentaras (nebūtina)</div>
+    <textarea id="ntComment"></textarea>
+
+    <div class="muted" style="margin-top:10px">Priskirti mechanikus</div>
+    <select id="ntMechs" multiple></select>
+    <div class="muted" style="font-size:12px;margin-bottom:10px">Laikyk CTRL (arba Cmd), kad pažymėtum kelis.</div>
+
+    <div class="right" style="margin-top:15px">
+      <button class="btn" id="ntCancel">Atšaukti</button>
+      <button class="btn primary" id="ntCreate">Sukurti užduotį</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
