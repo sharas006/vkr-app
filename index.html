@@ -205,7 +205,7 @@ async function updateTaskInSupabase(taskId, updates){
 }
 
 async function boot(){
-  db =  loadDB();
+  db = loadDB();
   if(!db){
     db = seedDB();
     saveDB_local(db);
@@ -418,9 +418,13 @@ window.addEventListener('storage', (e)=>{
 
 /* derived */
 function currentUser(){
-  if(db.session && db.session.currentUser && db.session.currentUser.id === db.session.userId){
+  if(!db) return null;
+  if(!db.session) return null;
+
+  if(db.session.currentUser && db.session.currentUser.id === db.session.userId){
     return db.session.currentUser;
   }
+
   return (db.users || []).find(u => u.id === db.session.userId) || null;
 }
 function userDisplay(uid){ const u=db.users.find(x=>x.id===uid); return u ? (u.display||u.username) : '(nenurodyta)'; }
@@ -532,12 +536,24 @@ function bindChangePassword(user){
 
 /* render router */
 function render(){
-  const root=document.getElementById('app');
-  const u=currentUser();
-  if(!u){ root.innerHTML=renderLogin(); bindLogin(); return; }
-  if(u.role==='admin') renderAdmin(root,u);
-  else if(u.role==='operator') renderOperator(root,u);
-  else renderMechanic(root,u);
+  const root = document.getElementById('app');
+  if(!root) return;
+
+  if(!db){
+    root.innerHTML = '<div class="card">Kraunama...</div>';
+    return;
+  }
+
+  const u = currentUser();
+  if(!u){
+    root.innerHTML = renderLogin();
+    bindLogin();
+    return;
+  }
+
+  if(u.role === 'admin') renderAdmin(root, u);
+  else if(u.role === 'operator') renderOperator(root, u);
+  else renderMechanic(root, u);
 }
 
 /* login */
