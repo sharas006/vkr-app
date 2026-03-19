@@ -149,7 +149,47 @@ async function boot(){
     db = seedDB();
     saveDB_local(db);
   }
+async function updateTaskInSupabase(taskId, updates){
+  const payload = {};
 
+  if(updates.equipId !== undefined) payload.equip_id = updates.equipId;
+  if(updates.title !== undefined) payload.title = updates.title;
+  if(updates.status !== undefined) payload.status = updates.status;
+  if(updates.assignedTo !== undefined) payload.assigned_to = updates.assignedTo;
+  if(updates.shared !== undefined) payload.shared = updates.shared;
+  if(updates.source !== undefined) payload.source = updates.source;
+  if(updates.initialComment !== undefined) payload.initial_comment = updates.initialComment;
+  if(updates.fromNoteId !== undefined) payload.from_note_id = updates.fromNoteId;
+  if(updates.seenBy !== undefined) payload.seen_by = updates.seenBy;
+  if(updates.progressLog !== undefined) payload.progress_log = updates.progressLog;
+
+  const { data, error } = await sb
+    .from('tasks')
+    .update(payload)
+    .eq('id', taskId)
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida atnaujinant task:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    equipId: data.equip_id,
+    title: data.title,
+    status: data.status,
+    assignedTo: Array.isArray(data.assigned_to) ? data.assigned_to : [],
+    shared: !!data.shared,
+    source: data.source || '',
+    createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
+    initialComment: data.initial_comment || '',
+    fromNoteId: data.from_note_id || null,
+    seenBy: data.seen_by || {},
+    progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
+  };
+}
   const usersFromCloud = await loadUsersFromSupabase();
   if(usersFromCloud.length){
     db.users = usersFromCloud;
@@ -363,12 +403,17 @@ async function boot(){
     saveDB_local(db);
   }
 
+  const usersFromCloud = await loadUsersFromSupabase();
+  if(usersFromCloud.length){
+    db.users = usersFromCloud;
+  }
+
   const tasksFromCloud = await loadTasksFromSupabase();
   if(tasksFromCloud.length){
     db.tasks = tasksFromCloud;
-    saveDB_local(db);
   }
 
+  saveDB_local(db);
   render();
 }
 
@@ -1241,9 +1286,24 @@ createTaskInSupabase(newTask).then(savedTask => {
     b.onclick=()=>{
       const [id,st]=b.getAttribute('data-st').split('|');
       const t=db.tasks.find(x=>x.id===id);
-      if(t){ t.status=st; saveDB(db); render(); }
-    };
-  });
+if(!t) return;
+
+updateTaskInSupabase(t.id, {
+  status: st,
+  progressLog: t.progressLog || [],
+  seenBy: t.seenBy || {}
+}).then(updatedTask => {
+  if(!updatedTask){
+    alert('Nepavyko atnaujinti statuso');
+    return;
+  }
+
+  const idx = db.tasks.findIndex(x => x.id === t.id);
+  if(idx >= 0) db.tasks[idx] = updatedTask;
+
+  saveDB_local(db);
+  render();
+});
   document.querySelectorAll('[data-finish]').forEach(b=>{
     b.onclick=()=>{
       const id=b.getAttribute('data-finish');
@@ -2227,12 +2287,23 @@ function bindMechanicTasks(user){
       const id = b.getAttribute('data-seen');
       const t = db.tasks.find(x=>x.id===id);
       if(!t) return;
-      if(!t.seenBy) t.seenBy = {};
-      t.seenBy[user.id] = Date.now();
-      saveDB(db);
-      render();
-    };
-  });
+if(!t.seenBy) t.seenBy = {};
+t.seenBy[user.id] = Date.now();
+
+updateTaskInSupabase(t.id, {
+  seenBy: t.seenBy
+}).then(updatedTask => {
+  if(!updatedTask){
+    alert('Nepavyko pažymėti SEEN');
+    return;
+  }
+
+  const idx = db.tasks.findIndex(x => x.id === t.id);
+  if(idx >= 0) db.tasks[idx] = updatedTask;
+
+  saveDB_local(db);
+  render();
+});
 
   document.querySelectorAll('[data-st]').forEach(b=>{
     b.onclick=()=>{
@@ -2258,9 +2329,21 @@ function bindMechanicTasks(user){
         }
       }
 
-      t.status=st;
-      saveDB(db);
-      render();
+updateTaskInSupabase(t.id, {
+  status: st,
+  progressLog: t.progressLog || []
+}).then(updatedTask => {
+  if(!updatedTask){
+    alert('Nepavyko atnaujinti užduoties');
+    return;
+  }
+
+  const idx = db.tasks.findIndex(x => x.id === t.id);
+  if(idx >= 0) db.tasks[idx] = updatedTask;
+
+  saveDB_local(db);
+  render();
+});
     };
   });
 
