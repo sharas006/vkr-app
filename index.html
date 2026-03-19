@@ -1183,9 +1183,10 @@ function adminTasks(){
         <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
         <b>${escapeHtml(t.title)}</b>
         ${t.initialComment ? `<div class="muted" style="margin-top:4px;font-style:italic;">Užduoties komentaras: ${escapeHtml(t.initialComment)}</div>` : ''}
-        <div class="muted">Priskirta: ${t.shared?'Bendra visiems':((t.assignedTo||[]).map(userDisplay).join(', ')||'—')}</div>
-        ${progressLine}
-        <div class="muted">${escapeHtml(seenInfo(t))}</div>
+<div class="muted">Priskirta: ${t.shared?'Bendra visiems':((t.assignedTo||[]).map(userDisplay).join(', ')||'—')}</div>
+<div class="muted"><b>Statusas:</b> ${escapeHtml(t.status || '—')}</div>
+${progressLine}
+<div class="muted">${escapeHtml(seenInfo(t))}</div>
         <div class="right" style="margin-top:6px">
           <button class="btn" data-st="${t.id}|Nauja">Nauja</button>
           <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
