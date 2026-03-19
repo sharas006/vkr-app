@@ -143,12 +143,7 @@ async function loadTasksFromSupabase(){
     progressLog: Array.isArray(t.progress_log) ? t.progress_log : []
   }));
 }
-async function boot(){
-  db = await loadDB();
-  if(!db){
-    db = seedDB();
-    saveDB_local(db);
-  }
+
 async function updateTaskInSupabase(taskId, updates){
   const payload = {};
 
@@ -190,6 +185,14 @@ async function updateTaskInSupabase(taskId, updates){
     progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
   };
 }
+
+async function boot(){
+  db = await loadDB();
+  if(!db){
+    db = seedDB();
+    saveDB_local(db);
+  }
+
   const usersFromCloud = await loadUsersFromSupabase();
   if(usersFromCloud.length){
     db.users = usersFromCloud;
@@ -203,6 +206,7 @@ async function updateTaskInSupabase(taskId, updates){
   saveDB_local(db);
   render();
 }
+
 async function createTaskInSupabase(task){
   const payload = {
     equip_id: task.equipId,
