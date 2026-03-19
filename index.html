@@ -2678,8 +2678,22 @@ function bindMechanicLube(user){
   }
 }
 
+setInterval(async () => {
+  const usersFromCloud = await loadUsersFromSupabase();
+  if(usersFromCloud.length){
+    db.users = usersFromCloud;
+  }
+
+  const tasksFromCloud = await loadTasksFromSupabase();
+  if(tasksFromCloud.length){
+    db.tasks = tasksFromCloud;
+  }
+
+  saveDB_local(db);
+  render();
+}, 3000);
+
 boot();
-</script>
 
 <!-- bendras modalas pastabos pavertimui į užduotį (naudoja ir Admin, ir Mechanikas) -->
 <div id="noteToTaskModal" class="modal hidden">
