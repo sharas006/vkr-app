@@ -392,18 +392,6 @@ async function boot(){
   db = await loadDB();
   if(!db){
     db = seedDB();
-    await saveDB(db);
-  }
-  render();
-}
-
-boot();
-
-
-async function boot(){
-  db = await loadDB();
-  if(!db){
-    db = seedDB();
     saveDB_local(db);
   }
 
@@ -1219,12 +1207,10 @@ function adminTasks(){
     </div>`;
 }
 function bindAdminTasks(){
-    // --- Technikos paieška / filtras ---
   const eqSearch = document.getElementById('tEquipSearch');
   const eqSelect = document.getElementById('tEquip');
 
   if(eqSearch && eqSelect){
-    // išsisaugom visus originalius option'us
     const allOpts = Array.from(eqSelect.options).map(o => ({
       value: o.value,
       text: o.textContent || ''
@@ -1233,7 +1219,6 @@ function bindAdminTasks(){
     function applyEquipFilter(){
       const q = (eqSearch.value || '').trim().toLowerCase();
 
-      // perstatom select option'us
       eqSelect.innerHTML = '';
       allOpts
         .filter(o => !q || o.text.toLowerCase().includes(q))
@@ -1244,76 +1229,83 @@ function bindAdminTasks(){
           eqSelect.appendChild(opt);
         });
 
-      // jei po filtro liko bent 1 — automatiškai pažymim pirmą
       if(eqSelect.options.length) eqSelect.selectedIndex = 0;
     }
 
     eqSearch.addEventListener('input', applyEquipFilter);
-    // startinis (jei laukas turi reikšmę)
     applyEquipFilter();
   }
 
-  const create=document.getElementById('tCreate');
+  const create = document.getElementById('tCreate');
   if(create){
-    create.onclick=()=>{
-      const equipId=document.getElementById('tEquip').value;
-      const title=safeTrim(document.getElementById('tTitle').value)||'Užduotis';
-      const shared=document.getElementById('tShared').checked;
-      const sel=document.getElementById('tAssign');
-      let assignedTo=[];
+    create.onclick = ()=>{
+      const equipId = document.getElementById('tEquip').value;
+      const title = safeTrim(document.getElementById('tTitle').value) || 'Užduotis';
+      const shared = document.getElementById('tShared').checked;
+      const sel = document.getElementById('tAssign');
+      let assignedTo = [];
+
       if(!shared && sel){
-        for(let i=0;i<sel.options.length;i++){ if(sel.options[i].selected) assignedTo.push(sel.options[i].value); }
+        for(let i=0; i<sel.options.length; i++){
+          if(sel.options[i].selected) assignedTo.push(sel.options[i].value);
+        }
       }
-const newTask = {
-  equipId,
-  title,
-  status:'Nauja',
-  assignedTo,
-  shared,
-  source:'admin',
-  createdAt:Date.now()
-};
 
-createTaskInSupabase(newTask).then(savedTask => {
-  if(!savedTask){
-    alert('Nepavyko išsaugoti užduoties į Supabase');
-    return;
-  }
+      const newTask = {
+        equipId,
+        title,
+        status: 'Nauja',
+        assignedTo,
+        shared,
+        source: 'admin',
+        createdAt: Date.now()
+      };
 
-  db.tasks.unshift(savedTask);
-  saveDB_local(db);
-  render();
-});
+      createTaskInSupabase(newTask).then(savedTask => {
+        if(!savedTask){
+          alert('Nepavyko išsaugoti užduoties į Supabase');
+          return;
+        }
+
+        db.tasks.unshift(savedTask);
+        saveDB_local(db);
+        render();
+      });
     };
   }
+
   document.querySelectorAll('[data-st]').forEach(b=>{
-    b.onclick=()=>{
-      const [id,st]=b.getAttribute('data-st').split('|');
-      const t=db.tasks.find(x=>x.id===id);
-if(!t) return;
-
-updateTaskInSupabase(t.id, {
-  status: st,
-  progressLog: t.progressLog || [],
-  seenBy: t.seenBy || {}
-}).then(updatedTask => {
-  if(!updatedTask){
-    alert('Nepavyko atnaujinti statuso');
-    return;
-  }
-
-  const idx = db.tasks.findIndex(x => x.id === t.id);
-  if(idx >= 0) db.tasks[idx] = updatedTask;
-
-  saveDB_local(db);
-  render();
-});
-  document.querySelectorAll('[data-finish]').forEach(b=>{
-    b.onclick=()=>{
-      const id=b.getAttribute('data-finish');
-      const t=db.tasks.find(x=>x.id===id);
+    b.onclick = ()=>{
+      const [id, st] = b.getAttribute('data-st').split('|');
+      const t = db.tasks.find(x=>x.id===id);
       if(!t) return;
-      t.status='Laukia patvirtinimo';
+
+      updateTaskInSupabase(t.id, {
+        status: st,
+        progressLog: t.progressLog || [],
+        seenBy: t.seenBy || {}
+      }).then(updatedTask => {
+        if(!updatedTask){
+          alert('Nepavyko atnaujinti statuso');
+          return;
+        }
+
+        const idx = db.tasks.findIndex(x => x.id === t.id);
+        if(idx >= 0) db.tasks[idx] = updatedTask;
+
+        saveDB_local(db);
+        render();
+      });
+    };
+  });
+
+  document.querySelectorAll('[data-finish]').forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute('data-finish');
+      const t = db.tasks.find(x=>x.id===id);
+      if(!t) return;
+
+      t.status = 'Laukia patvirtinimo';
       db.approvals.unshift({
         id: rid(),
         taskId: t.id,
@@ -1328,6 +1320,7 @@ updateTaskInSupabase(t.id, {
         comment: '',
         helpers: []
       });
+
       saveDB(db);
       render();
     };
@@ -2291,28 +2284,31 @@ function bindMechanicTasks(user){
       const id = b.getAttribute('data-seen');
       const t = db.tasks.find(x=>x.id===id);
       if(!t) return;
-if(!t.seenBy) t.seenBy = {};
-t.seenBy[user.id] = Date.now();
 
-updateTaskInSupabase(t.id, {
-  seenBy: t.seenBy
-}).then(updatedTask => {
-  if(!updatedTask){
-    alert('Nepavyko pažymėti SEEN');
-    return;
-  }
+      if(!t.seenBy) t.seenBy = {};
+      t.seenBy[user.id] = Date.now();
 
-  const idx = db.tasks.findIndex(x => x.id === t.id);
-  if(idx >= 0) db.tasks[idx] = updatedTask;
+      updateTaskInSupabase(t.id, {
+        seenBy: t.seenBy
+      }).then(updatedTask => {
+        if(!updatedTask){
+          alert('Nepavyko pažymėti SEEN');
+          return;
+        }
 
-  saveDB_local(db);
-  render();
-});
+        const idx = db.tasks.findIndex(x => x.id === t.id);
+        if(idx >= 0) db.tasks[idx] = updatedTask;
+
+        saveDB_local(db);
+        render();
+      });
+    };
+  });
 
   document.querySelectorAll('[data-st]').forEach(b=>{
-    b.onclick=()=>{
-      const [id,st]=b.getAttribute('data-st').split('|');
-      const t=db.tasks.find(x=>x.id===id);
+    b.onclick = ()=>{
+      const [id, st] = b.getAttribute('data-st').split('|');
+      const t = db.tasks.find(x=>x.id===id);
       if(!t) return;
 
       if(st === 'Vykdoma'){
@@ -2333,28 +2329,28 @@ updateTaskInSupabase(t.id, {
         }
       }
 
-updateTaskInSupabase(t.id, {
-  status: st,
-  progressLog: t.progressLog || []
-}).then(updatedTask => {
-  if(!updatedTask){
-    alert('Nepavyko atnaujinti užduoties');
-    return;
-  }
+      updateTaskInSupabase(t.id, {
+        status: st,
+        progressLog: t.progressLog || []
+      }).then(updatedTask => {
+        if(!updatedTask){
+          alert('Nepavyko atnaujinti užduoties');
+          return;
+        }
 
-  const idx = db.tasks.findIndex(x => x.id === t.id);
-  if(idx >= 0) db.tasks[idx] = updatedTask;
+        const idx = db.tasks.findIndex(x => x.id === t.id);
+        if(idx >= 0) db.tasks[idx] = updatedTask;
 
-  saveDB_local(db);
-  render();
-});
+        saveDB_local(db);
+        render();
+      });
     };
   });
 
   document.querySelectorAll('[data-done]').forEach(b=>{
-    b.onclick=()=>{
-      const id=b.getAttribute('data-done');
-      const t=db.tasks.find(x=>x.id===id);
+    b.onclick = ()=>{
+      const id = b.getAttribute('data-done');
+      const t = db.tasks.find(x=>x.id===id);
       if(!t) return;
 
       const card = b.closest('.card');
@@ -2375,7 +2371,7 @@ updateTaskInSupabase(t.id, {
       const sel = card ? card.querySelector('.helperSelect') : null;
       const helpers = sel ? Array.from(sel.selectedOptions).map(o=>o.value) : [];
 
-      t.status='Laukia patvirtinimo';
+      t.status = 'Laukia patvirtinimo';
 
       db.approvals.unshift({
         id: rid(),
@@ -2385,7 +2381,7 @@ updateTaskInSupabase(t.id, {
         date: today(),
         start: nowHM(),
         durationMin: 30,
-        doneBy: (user.display||user.username),
+        doneBy: (user.display || user.username),
         doneById: user.id,
         role: 'mechanikas',
         comment: comment,
@@ -2398,18 +2394,19 @@ updateTaskInSupabase(t.id, {
     };
   });
 
-  const create=document.getElementById('mCreate');
+  const create = document.getElementById('mCreate');
   if(create){
-    create.onclick=()=>{
-      const equipId=document.getElementById('mEq').value;
-      const title=safeTrim(document.getElementById('mTitle').value)||'Užduotis';
+    create.onclick = ()=>{
+      const equipId = document.getElementById('mEq').value;
+      const title = safeTrim(document.getElementById('mTitle').value) || 'Užduotis';
+
       db.tasks.unshift({
         id: rid(),
         equipId: equipId,
         title: title,
         status: 'Nauja',
         source: 'operator-report',
-        reportedBy: user.display||user.username,
+        reportedBy: user.display || user.username,
         reportedAt: Date.now()
       });
 
