@@ -2681,7 +2681,23 @@ function bindMechanicLube(user){
 
 setInterval(async () => {
   if(!db) return;
-  if(!db.session || !db.session.userId) return;
+
+  const isLoggedIn = !!(db.session && db.session.userId);
+  if(!isLoggedIn) return;
+
+  const currentRole = currentUser()?.role || '';
+  const opView = db.session?.opView || '';
+  const mechView = db.session?.mechView || '';
+  const adminView = db.session?.adminView || '';
+
+  // NERENDERINTI, kai žmogus kažką rašo
+  const isTypingSensitive =
+    (currentRole === 'operator' && (opView === 'check' || opView === 'repair' || opView === 'history')) ||
+    (currentRole === 'mechanic' && mechView === 'tasks') ||
+    (currentRole === 'admin' && (adminView === 'tasks' || adminView === 'notes' || adminView === 'users' || adminView === 'equip' || adminView === 'grabs'));
+
+  const oldTasks = JSON.stringify(db.tasks || []);
+  const oldUsers = JSON.stringify(db.users || []);
 
   const usersFromCloud = await loadUsersFromSupabase();
   if(usersFromCloud.length){
@@ -2694,7 +2710,14 @@ setInterval(async () => {
   }
 
   saveDB_local(db);
-  render();
+
+  const tasksChanged = oldTasks !== JSON.stringify(db.tasks || []);
+  const usersChanged = oldUsers !== JSON.stringify(db.users || []);
+
+  // Perpiešiam tik jei tikrai yra pasikeitimų IR vartotojas tuo metu nerašo
+  if((tasksChanged || usersChanged) && !isTypingSensitive){
+    render();
+  }
 }, 3000);
 
 boot();
