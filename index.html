@@ -4,38 +4,36 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>VKR • OFFLINE App (Login + Rolės)</title>
-  <style>
-    :root{
-      --bg:#f6f7fb;--card:#fff;--muted:#6b7280;--text:#111827;--primary:#0ea5e9;
-      --green:#10b981;--red:#ef4444;--amber:#f59e0b;--border:#e5e7eb;--rounded:14px;
-      --danger-bg:#fff5f5;--danger-b:#fecaca;
-    }
-    *{box-sizing:border-box}
-    html, body {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-.req-miss{
-  border:2px solid #ef4444 !important;
-}
-.req-miss .muted{
-  color:#b91c1c !important;
-  font-weight:700;
-}
+<style>
+  :root{
+    --bg:#f6f7fb;--card:#fff;--muted:#6b7280;--text:#111827;--primary:#0ea5e9;
+    --green:#10b981;--red:#ef4444;--amber:#f59e0b;--border:#e5e7eb;--rounded:14px;
+    --danger-bg:#fff5f5;--danger-b:#fecaca;
+  }
+  *{box-sizing:border-box}
 
-  /* 👇 FONAS */
-  background:
-    linear-gradient(
-      rgba(10, 15, 25, 0.65),
-      rgba(10, 15, 25, 0.65)
-    ),
-    url("img/bg.jpg") no-repeat center center fixed;
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background:
+      linear-gradient(
+        rgba(10, 15, 25, 0.65),
+        rgba(10, 15, 25, 0.65)
+      ),
+      url("img/bg.jpg") no-repeat center center fixed;
+    background-size: cover;
+  }
 
-  background-size: cover;
-}
+  .req-miss{
+    border:2px solid #ef4444 !important;
+  }
+  .req-miss .muted{
+    color:#b91c1c !important;
+    font-weight:700;
+  }
 
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif
     .container{max-width:1200px;margin:0 auto;padding:16px}
     .card{background:var(--card);border:1px solid var(--border);border-radius:var(--rounded);padding:14px;margin-bottom:12px}
     .row{display:grid;gap:12px}
@@ -106,13 +104,16 @@
 </head>
 <body>
 <div class="container" id="app"></div>
-<script>
-const DB_KEY = 'vkr_app_db_v1';
-// ===== ONLINE DB (Google Apps Script) =====
-const API_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLijkYTOFKz4PgT06g3iHAx7Kzp77D3Dyw2GvAUqjpS1olmHqKSQuPc4X4eF5DGsPF0qnSFCQXLIhoWCIt300FCXUPOyunhcABe62owIikusN2gHzMhOayo0UBNaFO3fipTVe1Uc9WqIeOfACSVzlw7aUSjt5rsMA5SaAas4WYjTvnV0sXZU2oIumonV1Q7c4lE8F6OEqkl9kMPHxpECGjH7vXWAYHN5LTSw9fUk9Nt6PkvjvWJe8HuRuNqhyJGWqYH5jb9oGeaDqS9OBh6tYUqjLxsq7Q&lib=MgC32PGkusH7sSbzXOHmE-LVhD7P4sTYG'; // pvz script.googleusercontent.com/... arba script.google.com/.../exec
 
-const ONLINE = true;        // jei nori grįžti į localStorage – padaryk false
-const SYNC_EVERY_MS = 5000; // kas kiek laiko atsinaujinti (5s)
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://avrjslhjckekhjuitkuo.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Q57UTc8C3EVY5zIoldLcxQ_e_niNb5p";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const DB_KEY = 'vkr_app_db_v1';
+const ONLINE = false;
+const SYNC_EVERY_MS = 5000;
 
 
 /* helpers */
@@ -218,10 +219,15 @@ async function saveDB(dbObj){
 function seedDB(){
   const db = {
     version: 1,
-    session: { userId: null, adminView:'dashboard', opView:'home', mechView:'tasks', opEquipId:null },
-    users: [
-      { id:'u-admin', username:'admin', display:'Admin', role:'admin', password:'admin123' }
-    ],
+    session: {
+      userId: null,
+      currentUser: null,
+      adminView:'dashboard',
+      opView:'home',
+      mechView:'tasks',
+      opEquipId:null
+    },
+    users: [],
     equipment: [
       { id:'terberg-106', type:'Terberg', num:'106', name:'', model:'' },
       { id:'linde-23', type:'Linde krautuvas', num:'23', name:'', model:'' },
@@ -229,9 +235,9 @@ function seedDB(){
     ],
     grabs: [
       { id:'gr-ecrane-metal', label:'E-Crane – metalinis greiferis', parentEquipId:'lhm-03' },
-      { id:'gr-ecrane-bulk',  label:'E-Crane – birių greiferis',     parentEquipId:'lhm-03' },
-      { id:'gr-sokol-metal',  label:'Sokol – metalinis greiferis',   parentEquipId:'terberg-106' },
-      { id:'gr-sokol-bulk',   label:'Sokol – birių greiferis',       parentEquipId:'terberg-106' }
+      { id:'gr-ecrane-bulk',  label:'E-Crane – birių greiferis', parentEquipId:'lhm-03' },
+      { id:'gr-sokol-metal',  label:'Sokol – metalinis greiferis', parentEquipId:'terberg-106' },
+      { id:'gr-sokol-bulk',   label:'Sokol – birių greiferis', parentEquipId:'terberg-106' }
     ],
     tasks: [],
     approvals: [],
@@ -239,6 +245,7 @@ function seedDB(){
     completed: [],
     lube: {}
   };
+
   // demo users
   db.users.push({ id:'u-sarunas', username:'sarunas', display:'Šarūnas', role:'operator', password:'123' });
   db.users.push({ id:'u-vaidotas', username:'vaidotas', display:'Vaidotas', role:'mechanic', password:'123' });
@@ -284,7 +291,12 @@ window.addEventListener('storage', (e)=>{
 });
 
 /* derived */
-function currentUser(){ return db.users.find(u=>u.id===db.session.userId) || null; }
+function currentUser(){
+  if(db.session && db.session.currentUser && db.session.currentUser.id === db.session.userId){
+    return db.session.currentUser;
+  }
+  return (db.users || []).find(u => u.id === db.session.userId) || null;
+}
 function userDisplay(uid){ const u=db.users.find(x=>x.id===uid); return u ? (u.display||u.username) : '(nenurodyta)'; }
 function usersByRole(role){ return db.users.filter(u=>u.role===role); }
 function labelEquip(eid){
@@ -301,12 +313,33 @@ function setSessionUser(userId){ db.session.userId=userId; saveDB(db); }
 function logout(){ setSessionUser(null); render(); }
 
 /* auth */
-function doLogin(username,password){
-  const u=db.users.find(x=>x.username===username);
-  if(!u) return {ok:false,msg:'Neteisingas vartotojas arba slaptažodis.'};
-  if(u.password!==password) return {ok:false,msg:'Neteisingas vartotojas arba slaptažodis.'};
-  setSessionUser(u.id);
-  return {ok:true};
+async function doLogin(username, password){
+  try{
+    const { data, error } = await sb
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .eq('password', password)
+      .maybeSingle();
+
+    if(error){
+      console.error('Login klaida:', error);
+      return { ok:false, msg:'DB klaida prisijungiant.' };
+    }
+
+    if(!data){
+      return { ok:false, msg:'Neteisingas vartotojas arba slaptažodis.' };
+    }
+
+db.session.userId = data.id;
+db.session.currentUser = data;
+saveDB_local(db);
+
+    return { ok:true, user:data };
+  }catch(err){
+    console.error(err);
+    return { ok:false, msg:'Nepavyko prisijungti.' };
+  }
 }
 
 /* UI helpers */
@@ -391,17 +424,32 @@ function renderLogin(){
     </div>`;
 }
 function bindLogin(){
-  const u=document.getElementById('lgUser');
-  const p=document.getElementById('lgPass');
-  const b=document.getElementById('lgBtn');
-  const msg=document.getElementById('lgMsg');
-  function go(){
-    const res=doLogin(safeTrim(u.value),safeTrim(p.value));
-    if(!res.ok){ msg.textContent=res.msg||'Klaida.'; return; }
+  const u = document.getElementById('lgUser');
+  const p = document.getElementById('lgPass');
+  const b = document.getElementById('lgBtn');
+  const msg = document.getElementById('lgMsg');
+
+  async function go(){
+    msg.textContent = 'Jungiamasi...';
+
+    const res = await doLogin(
+      safeTrim(u.value),
+      safeTrim(p.value)
+    );
+
+    if(!res.ok){
+      msg.textContent = res.msg || 'Klaida.';
+      return;
+    }
+
+    msg.textContent = '';
     render();
   }
-  b.onclick=go;
-  p.addEventListener('keydown',(e)=>{ if(e.key==='Enter') go(); });
+
+  b.onclick = go;
+  p.addEventListener('keydown', async (e)=>{
+    if(e.key === 'Enter') await go();
+  });
 }
 
 /* ADMIN */
