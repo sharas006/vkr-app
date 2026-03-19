@@ -143,7 +143,26 @@ async function loadTasksFromSupabase(){
     progressLog: Array.isArray(t.progress_log) ? t.progress_log : []
   }));
 }
+async function boot(){
+  db = await loadDB();
+  if(!db){
+    db = seedDB();
+    saveDB_local(db);
+  }
 
+  const usersFromCloud = await loadUsersFromSupabase();
+  if(usersFromCloud.length){
+    db.users = usersFromCloud;
+  }
+
+  const tasksFromCloud = await loadTasksFromSupabase();
+  if(tasksFromCloud.length){
+    db.tasks = tasksFromCloud;
+  }
+
+  saveDB_local(db);
+  render();
+}
 async function createTaskInSupabase(task){
   const payload = {
     equip_id: task.equipId,
@@ -402,8 +421,24 @@ async function doLogin(username, password){
       return { ok:false, msg:'Neteisingas vartotojas arba slaptažodis.' };
     }
 
-db.session.userId = data.id;
-db.session.currentUser = data;
+const normalizedUser = {
+  id: data.id,
+  username: data.username,
+  display: data.name || data.username,
+  role: data.role,
+  password: data.password
+};
+
+db.session.userId = normalizedUser.id;
+db.session.currentUser = normalizedUser;
+
+const existingIdx = (db.users || []).findIndex(u => u.id === normalizedUser.id);
+if(existingIdx >= 0){
+  db.users[existingIdx] = normalizedUser;
+} else {
+  db.users.push(normalizedUser);
+}
+
 saveDB_local(db);
 
     return { ok:true, user:data };
