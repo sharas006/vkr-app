@@ -419,15 +419,16 @@ window.addEventListener('storage', (e)=>{
 /* derived */
 function currentUser(){
   if(!db) return null;
-  if(!db.session) return null;
-
-  if(db.session.currentUser && db.session.currentUser.id === db.session.userId){
+  if(db.session && db.session.currentUser && db.session.currentUser.id === db.session.userId){
     return db.session.currentUser;
   }
-
   return (db.users || []).find(u => u.id === db.session.userId) || null;
 }
-function userDisplay(uid){ const u=db.users.find(x=>x.id===uid); return u ? (u.display||u.username) : '(nenurodyta)'; }
+
+function userDisplay(uid){
+  const u = db.users.find(x => x.id === uid);
+  return u ? (u.display || u.username) : '(nenurodyta)';
+}
 function usersByRole(role){ return db.users.filter(u=>u.role===role); }
 function labelEquip(eid){
   const e = db.equipment.find(x=>x.id===eid);
@@ -2694,6 +2695,7 @@ setInterval(async () => {
 }, 3000);
 
 boot();
+</script>
 
 <!-- bendras modalas pastabos pavertimui į užduotį (naudoja ir Admin, ir Mechanikas) -->
 <div id="noteToTaskModal" class="modal hidden">
