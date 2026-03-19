@@ -2680,6 +2680,9 @@ function bindMechanicLube(user){
 }
 
 setInterval(async () => {
+  if(!db) return;
+  if(!db.session || !db.session.userId) return;
+
   const usersFromCloud = await loadUsersFromSupabase();
   if(usersFromCloud.length){
     db.users = usersFromCloud;
