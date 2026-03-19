@@ -117,6 +117,73 @@ const SYNC_EVERY_MS = 5000;
 
 
 /* helpers */
+async function loadTasksFromSupabase(){
+  const { data, error } = await sb
+    .from('tasks')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Klaida gaunant tasks:', error);
+    return [];
+  }
+
+  return (data || []).map(t => ({
+    id: t.id,
+    equipId: t.equip_id,
+    title: t.title,
+    status: t.status,
+    assignedTo: Array.isArray(t.assigned_to) ? t.assigned_to : [],
+    shared: !!t.shared,
+    source: t.source || '',
+    createdAt: t.created_at ? new Date(t.created_at).getTime() : Date.now(),
+    initialComment: t.initial_comment || '',
+    fromNoteId: t.from_note_id || null,
+    seenBy: t.seen_by || {},
+    progressLog: Array.isArray(t.progress_log) ? t.progress_log : []
+  }));
+}
+
+async function createTaskInSupabase(task){
+  const payload = {
+    equip_id: task.equipId,
+    title: task.title,
+    status: task.status || 'Nauja',
+    assigned_to: task.assignedTo || [],
+    shared: !!task.shared,
+    source: task.source || 'admin',
+    initial_comment: task.initialComment || null,
+    from_note_id: task.fromNoteId || null,
+    seen_by: task.seenBy || {},
+    progress_log: task.progressLog || []
+  };
+
+  const { data, error } = await sb
+    .from('tasks')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant task:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    equipId: data.equip_id,
+    title: data.title,
+    status: data.status,
+    assignedTo: Array.isArray(data.assigned_to) ? data.assigned_to : [],
+    shared: !!data.shared,
+    source: data.source || '',
+    createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
+    initialComment: data.initial_comment || '',
+    fromNoteId: data.from_note_id || null,
+    seenBy: data.seen_by || {},
+    progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
+  };
+}
 function rid(){ return 'id'+Math.random().toString(16).slice(2)+Math.random().toString(16).slice(2); }
 function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
 function nowHM(){ const d=new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
@@ -270,16 +337,20 @@ async function boot(){
 boot();
 
 
-function ensureOpReminder(eid){
-  if(opReminderTimer) clearInterval(opReminderTimer);
+async function boot(){
+  db = await loadDB();
+  if(!db){
+    db = seedDB();
+    saveDB_local(db);
+  }
 
-  opReminderTimer = setInterval(()=>{
-    const taskId = db.session.opRunningByEquip?.[eid] || null;
-    if(!taskId) return;
-    const t = (db.tasks||[]).find(x=>x.id===taskId);
-    if(!t) return;
-    alert('⚠️ Primenu: vyksta remontas. Nepamiršk užbaigti: ' + (t.title||''));
-  }, 5*60*1000);
+  const tasksFromCloud = await loadTasksFromSupabase();
+  if(tasksFromCloud.length){
+    db.tasks = tasksFromCloud;
+    saveDB_local(db);
+  }
+
+  render();
 }
 
 /* realtime sync */
@@ -1109,9 +1180,26 @@ function bindAdminTasks(){
       if(!shared && sel){
         for(let i=0;i<sel.options.length;i++){ if(sel.options[i].selected) assignedTo.push(sel.options[i].value); }
       }
-      db.tasks.unshift({ id:rid(), equipId, title, status:'Nauja', assignedTo, shared, source:'admin', createdAt:Date.now() });
-      saveDB(db);
-      render();
+const newTask = {
+  equipId,
+  title,
+  status:'Nauja',
+  assignedTo,
+  shared,
+  source:'admin',
+  createdAt:Date.now()
+};
+
+createTaskInSupabase(newTask).then(savedTask => {
+  if(!savedTask){
+    alert('Nepavyko išsaugoti užduoties į Supabase');
+    return;
+  }
+
+  db.tasks.unshift(savedTask);
+  saveDB_local(db);
+  render();
+});
     };
   }
   document.querySelectorAll('[data-st]').forEach(b=>{
