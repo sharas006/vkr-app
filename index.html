@@ -192,7 +192,6 @@ async function updateUserInSupabase(userId, updates){
 }
 async function createUserInSupabase(user){
   const payload = {
-    id: user.id,
     name: user.display,
     username: user.username,
     role: user.role,
@@ -1105,15 +1104,12 @@ if(id){
   db.users[idx] = updatedUser;
 
 }else{
-  const newUser = {
-    id:'u-'+rid(),
+  const createdUser = await createUserInSupabase({
     display,
     username,
     role,
-    password:pass
-  };
-
-  const createdUser = await createUserInSupabase(newUser);
+    password: pass
+  });
 
   if(!createdUser){
     msg.textContent='Nepavyko sukurti naudotojo Supabase.';
