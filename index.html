@@ -210,6 +210,7 @@ async function loadTasksFromSupabase(){
     progressLog: Array.isArray(t.progress_log) ? t.progress_log : []
   }));
 }
+
 async function loadUsersFromSupabase(){
   const { data, error } = await sb
     .from('users')
@@ -229,6 +230,7 @@ async function loadUsersFromSupabase(){
     password: u.password
   }));
 }
+
 async function updateUserInSupabase(userId, updates){
   const payload = {};
 
@@ -257,6 +259,7 @@ async function updateUserInSupabase(userId, updates){
     password: data.password
   };
 }
+
 async function createUserInSupabase(user){
   const payload = {
     name: user.display,
@@ -284,6 +287,7 @@ async function createUserInSupabase(user){
     password: data.password
   };
 }
+
 async function updateTaskInSupabase(taskId, updates){
   const payload = {};
 
@@ -326,27 +330,6 @@ async function updateTaskInSupabase(taskId, updates){
   };
 }
 
-async function boot(){
-  db = loadDB();
-  if(!db){
-    db = seedDB();
-    saveDB_local(db);
-  }
-
-  const usersFromCloud = await loadUsersFromSupabase();
-  if(usersFromCloud.length){
-    db.users = usersFromCloud;
-  }
-
-  const tasksFromCloud = await loadTasksFromSupabase();
-  if(tasksFromCloud.length){
-    db.tasks = tasksFromCloud;
-  }
-
-  saveDB_local(db);
-  render();
-}
-
 async function createTaskInSupabase(task){
   const payload = {
     equip_id: task.equipId,
@@ -386,6 +369,211 @@ async function createTaskInSupabase(task){
     seenBy: data.seen_by || {},
     progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
   };
+}
+async function loadEquipmentFromSupabase(){
+  const { data, error } = await sb
+    .from('equipment')
+    .select('*')
+    .order('type', { ascending: true });
+
+  if(error){
+    console.error('Klaida gaunant equipment:', error);
+    return [];
+  }
+
+  return (data || []).map(e => ({
+    id: e.id,
+    type: e.type,
+    num: e.num,
+    name: e.name || '',
+    model: e.model || ''
+  }));
+}
+
+async function createEquipmentInSupabase(equip){
+  const payload = {
+    id: equip.id,
+    type: equip.type,
+    num: equip.num,
+    name: equip.name || '',
+    model: equip.model || ''
+  };
+
+  const { data, error } = await sb
+    .from('equipment')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant equipment:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    type: data.type,
+    num: data.num,
+    name: data.name || '',
+    model: data.model || ''
+  };
+}
+
+async function updateEquipmentInSupabase(equipId, updates){
+  const payload = {};
+
+  if(updates.type !== undefined) payload.type = updates.type;
+  if(updates.num !== undefined) payload.num = updates.num;
+  if(updates.name !== undefined) payload.name = updates.name;
+  if(updates.model !== undefined) payload.model = updates.model;
+
+  const { data, error } = await sb
+    .from('equipment')
+    .update(payload)
+    .eq('id', equipId)
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida atnaujinant equipment:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    type: data.type,
+    num: data.num,
+    name: data.name || '',
+    model: data.model || ''
+  };
+}
+
+async function deleteEquipmentFromSupabase(equipId){
+  const { error } = await sb
+    .from('equipment')
+    .delete()
+    .eq('id', equipId);
+
+  if(error){
+    console.error('Klaida trinant equipment:', error);
+    return false;
+  }
+
+  return true;
+}
+
+async function loadGrabsFromSupabase(){
+  const { data, error } = await sb
+    .from('grabs')
+    .select('*')
+    .order('label', { ascending: true });
+
+  if(error){
+    console.error('Klaida gaunant grabs:', error);
+    return [];
+  }
+
+  return (data || []).map(g => ({
+    id: g.id,
+    label: g.label,
+    parentEquipId: g.parent_equip_id || ''
+  }));
+}
+
+async function createGrabInSupabase(grab){
+  const payload = {
+    id: grab.id,
+    label: grab.label,
+    parent_equip_id: grab.parentEquipId || null
+  };
+
+  const { data, error } = await sb
+    .from('grabs')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant grab:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    label: data.label,
+    parentEquipId: data.parent_equip_id || ''
+  };
+}
+
+async function updateGrabInSupabase(grabId, updates){
+  const payload = {};
+
+  if(updates.label !== undefined) payload.label = updates.label;
+  if(updates.parentEquipId !== undefined) payload.parent_equip_id = updates.parentEquipId || null;
+
+  const { data, error } = await sb
+    .from('grabs')
+    .update(payload)
+    .eq('id', grabId)
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida atnaujinant grab:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    label: data.label,
+    parentEquipId: data.parent_equip_id || ''
+  };
+}
+
+async function boot(){
+  db = loadDB();
+  if(!db){
+    db = seedDB();
+    saveDB_local(db);
+  }
+
+  const usersFromCloud = await loadUsersFromSupabase();
+  if(usersFromCloud.length){
+    db.users = usersFromCloud;
+  }
+
+  const tasksFromCloud = await loadTasksFromSupabase();
+  if(tasksFromCloud.length){
+    db.tasks = tasksFromCloud;
+  }
+
+  const equipmentFromCloud = await loadEquipmentFromSupabase();
+  if(equipmentFromCloud.length){
+    db.equipment = equipmentFromCloud;
+  }
+
+  const grabsFromCloud = await loadGrabsFromSupabase();
+  if(grabsFromCloud.length){
+    db.grabs = grabsFromCloud;
+  }
+
+  saveDB_local(db);
+  render();
+}
+
+
+async function deleteGrabFromSupabase(grabId){
+  const { error } = await sb
+    .from('grabs')
+    .delete()
+    .eq('id', grabId);
+
+  if(error){
+    console.error('Klaida trinant grab:', error);
+    return false;
+  }
+
+  return true;
 }
 function rid(){ return 'id'+Math.random().toString(16).slice(2)+Math.random().toString(16).slice(2); }
 function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
@@ -1025,34 +1213,46 @@ function bindAdminGrabs(){
 
   document.getElementById('gClear').onclick = clear;
 
-  document.getElementById('gSave').onclick = ()=>{
-    msgEl.textContent='';
+  document.getElementById('gSave').onclick = async ()=>{
+  msgEl.textContent = '';
 
-    const id = safeTrim(idEl.value);
-    const label = safeTrim(labelEl.value);
-    const parentEquipId = equipEl ? equipEl.value : '';
+  const id = safeTrim(idEl.value);
+  const label = safeTrim(labelEl.value);
+  const parentEquipId = equipEl ? equipEl.value : '';
 
-    if(!label){ msgEl.textContent='Reikia pavadinimo.'; return; }
-    if(!parentEquipId){ msgEl.textContent='Reikia priskirti technikai.'; return; }
+  if(!label){ msgEl.textContent='Reikia pavadinimo.'; return; }
+  if(!parentEquipId){ msgEl.textContent='Reikia priskirti technikai.'; return; }
 
-    if(id){
-      const g = db.grabs.find(x=>x.id===id);
-      if(!g){ msgEl.textContent='Greiferis nerastas.'; return; }
-      g.label = label;
-      g.parentEquipId = parentEquipId;
-      msgEl.textContent='Atnaujinta.';
-    }else{
-      db.grabs.push({
-        id: 'gr-'+rid(),
-        label,
-        parentEquipId
-      });
-      msgEl.textContent='Pridėta.';
+  if(id){
+    const updated = await updateGrabInSupabase(id, { label, parentEquipId });
+    if(!updated){
+      msgEl.textContent = 'Nepavyko atnaujinti greiferio.';
+      return;
     }
 
-    saveDB(db);
-    render();
-  };
+    const idx = db.grabs.findIndex(x=>x.id===id);
+    if(idx >= 0) db.grabs[idx] = updated;
+    msgEl.textContent = 'Atnaujinta.';
+  }else{
+    const newGrab = {
+      id: 'gr-'+rid(),
+      label,
+      parentEquipId
+    };
+
+    const saved = await createGrabInSupabase(newGrab);
+    if(!saved){
+      msgEl.textContent = 'Nepavyko sukurti greiferio.';
+      return;
+    }
+
+    db.grabs.push(saved);
+    msgEl.textContent = 'Pridėta.';
+  }
+
+  saveDB_local(db);
+  render();
+};
 
   document.querySelectorAll('[data-g-edit]').forEach(b=>{
     b.onclick=()=>{
@@ -1067,18 +1267,23 @@ function bindAdminGrabs(){
   });
 
   document.querySelectorAll('[data-g-del]').forEach(b=>{
-    b.onclick=()=>{
-      const id=b.getAttribute('data-g-del');
-      const g=db.grabs.find(x=>x.id===id);
-      if(!g) return;
-      if(!confirm('Trinti greiferį: '+(g.label||g.id)+'?')) return;
+  b.onclick = async ()=>{
+    const id = b.getAttribute('data-g-del');
+    const g = db.grabs.find(x=>x.id===id);
+    if(!g) return;
+    if(!confirm('Trinti greiferį: '+(g.label||g.id)+'?')) return;
 
-      db.grabs = db.grabs.filter(x=>x.id!==id);
+    const ok = await deleteGrabFromSupabase(id);
+    if(!ok){
+      alert('Nepavyko ištrinti greiferio iš Supabase');
+      return;
+    }
 
-      saveDB(db);
-      render();
-    };
-  });
+    db.grabs = db.grabs.filter(x=>x.id!==id);
+    saveDB_local(db);
+    render();
+  };
+});
 }
 
 /* ADMIN – USERS */
@@ -1261,28 +1466,48 @@ function bindAdminEquip(){
   function clear(){ idEl.value=''; tEl.value=''; nEl.value=''; nmEl.value=''; mEl.value=''; msg.textContent=''; }
   document.getElementById('eClear').onclick=clear;
 
-  document.getElementById('eSave').onclick=()=>{
-    msg.textContent='';
-    const id=safeTrim(idEl.value);
-    const type=safeTrim(tEl.value);
-    const num=safeTrim(nEl.value);
-    const name=safeTrim(nmEl.value);
-    const model=safeTrim(mEl.value);
-    if(!type){ msg.textContent='Reikia tipo.'; return; }
-    if(!num){ msg.textContent='Reikia numerio.'; return; }
+  document.getElementById('eSave').onclick = async ()=>{
+  msg.textContent = '';
+  const id = safeTrim(idEl.value);
+  const type = safeTrim(tEl.value);
+  const num = safeTrim(nEl.value);
+  const name = safeTrim(nmEl.value);
+  const model = safeTrim(mEl.value);
 
-    if(id){
-      const e=db.equipment.find(x=>x.id===id);
-      if(!e){ msg.textContent='Technika nerasta.'; return; }
-      e.type=type; e.num=num; e.name=name; e.model=model;
-    }else{
-      const newId='eq-'+rid();
-      db.equipment.push({id:newId,type,num,name,model});
+  if(!type){ msg.textContent='Reikia tipo.'; return; }
+  if(!num){ msg.textContent='Reikia numerio.'; return; }
+
+  if(id){
+    const updated = await updateEquipmentInSupabase(id, { type, num, name, model });
+    if(!updated){
+      msg.textContent = 'Nepavyko atnaujinti technikos.';
+      return;
     }
-    saveDB(db);
-    clear();
-    render();
-  };
+
+    const idx = db.equipment.findIndex(x=>x.id===id);
+    if(idx >= 0) db.equipment[idx] = updated;
+  }else{
+    const newEquip = {
+      id: 'eq-'+rid(),
+      type,
+      num,
+      name,
+      model
+    };
+
+    const saved = await createEquipmentInSupabase(newEquip);
+    if(!saved){
+      msg.textContent = 'Nepavyko sukurti technikos.';
+      return;
+    }
+
+    db.equipment.push(saved);
+  }
+
+  saveDB_local(db);
+  clear();
+  render();
+};
 
   document.querySelectorAll('tbody tr').forEach(tr=>{
     const editBtn=tr.querySelector('[data-edit-e]');
@@ -1297,12 +1522,19 @@ function bindAdminEquip(){
       };
     }
     if(delBtn){
-      delBtn.onclick=()=>{
-        const id=delBtn.getAttribute('data-del-e');
-        if(!confirm('Trinti '+labelEquip(id)+'?')) return;
-        db.equipment=db.equipment.filter(x=>x.id!==id);
-        saveDB(db);
-        render();
+  delBtn.onclick = async ()=>{
+    const id = delBtn.getAttribute('data-del-e');
+    if(!confirm('Trinti '+labelEquip(id)+'?')) return;
+
+    const ok = await deleteEquipmentFromSupabase(id);
+    if(!ok){
+      alert('Nepavyko ištrinti technikos iš Supabase');
+      return;
+    }
+
+    db.equipment = db.equipment.filter(x=>x.id!==id);
+    saveDB_local(db);
+    render();
       };
     }
   });
@@ -2834,7 +3066,6 @@ setInterval(async () => {
   const mechView = db.session?.mechView || '';
   const adminView = db.session?.adminView || '';
 
-  // NERENDERINTI, kai žmogus kažką rašo
   const isTypingSensitive =
     (currentRole === 'operator' && (opView === 'check' || opView === 'repair' || opView === 'history')) ||
     (currentRole === 'mechanic' && mechView === 'tasks') ||
@@ -2842,24 +3073,29 @@ setInterval(async () => {
 
   const oldTasks = JSON.stringify(db.tasks || []);
   const oldUsers = JSON.stringify(db.users || []);
+  const oldEquipment = JSON.stringify(db.equipment || []);
+  const oldGrabs = JSON.stringify(db.grabs || []);
 
   const usersFromCloud = await loadUsersFromSupabase();
-  if(usersFromCloud.length){
-    db.users = usersFromCloud;
-  }
+  if(usersFromCloud.length) db.users = usersFromCloud;
 
   const tasksFromCloud = await loadTasksFromSupabase();
-  if(tasksFromCloud.length){
-    db.tasks = tasksFromCloud;
-  }
+  if(tasksFromCloud.length) db.tasks = tasksFromCloud;
+
+  const equipmentFromCloud = await loadEquipmentFromSupabase();
+  if(equipmentFromCloud.length) db.equipment = equipmentFromCloud;
+
+  const grabsFromCloud = await loadGrabsFromSupabase();
+  if(grabsFromCloud.length) db.grabs = grabsFromCloud;
 
   saveDB_local(db);
 
   const tasksChanged = oldTasks !== JSON.stringify(db.tasks || []);
   const usersChanged = oldUsers !== JSON.stringify(db.users || []);
+  const equipmentChanged = oldEquipment !== JSON.stringify(db.equipment || []);
+  const grabsChanged = oldGrabs !== JSON.stringify(db.grabs || []);
 
-  // Perpiešiam tik jei tikrai yra pasikeitimų IR vartotojas tuo metu nerašo
-  if((tasksChanged || usersChanged) && !isTypingSensitive){
+  if((tasksChanged || usersChanged || equipmentChanged || grabsChanged) && !isTypingSensitive){
     render();
   }
 }, 3000);
