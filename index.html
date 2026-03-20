@@ -162,6 +162,62 @@ async function loadUsersFromSupabase(){
     password: u.password
   }));
 }
+async function updateUserInSupabase(userId, updates){
+  const payload = {};
+
+  if(updates.display !== undefined) payload.name = updates.display;
+  if(updates.username !== undefined) payload.username = updates.username;
+  if(updates.role !== undefined) payload.role = updates.role;
+  if(updates.password !== undefined) payload.password = updates.password;
+
+  const { data, error } = await sb
+    .from('users')
+    .update(payload)
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida atnaujinant user:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    username: data.username,
+    display: data.name || data.username,
+    role: data.role,
+    password: data.password
+  };
+}
+async function createUserInSupabase(user){
+  const payload = {
+    id: user.id,
+    name: user.display,
+    username: user.username,
+    role: user.role,
+    password: user.password
+  };
+
+  const { data, error } = await sb
+    .from('users')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant user:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    username: data.username,
+    display: data.name || data.username,
+    role: data.role,
+    password: data.password
+  };
+}
 async function updateTaskInSupabase(taskId, updates){
   const payload = {};
 
@@ -1015,7 +1071,7 @@ function bindAdminUsers(){
   function clear(){ idEl.value=''; dEl.value=''; unEl.value=''; rEl.value='operator'; pEl.value=''; msg.textContent=''; }
   document.getElementById('uClear').onclick=clear;
 
-  document.getElementById('uSave').onclick=()=>{
+  document.getElementById('uSave').onclick=async ()=>{
     msg.textContent='';
     const id=safeTrim(idEl.value);
     const display=safeTrim(dEl.value);
@@ -1030,19 +1086,46 @@ function bindAdminUsers(){
     const clash=db.users.find(u=>u.username===username && u.id!==id);
     if(clash){ msg.textContent='Toks username jau yra.'; return; }
 
-    if(id){
-      const idx=db.users.findIndex(u=>u.id===id);
-      if(idx<0){ msg.textContent='Naudotojas nerastas.'; return; }
-      db.users[idx].display=display;
-      db.users[idx].username=username;
-      db.users[idx].role=role;
-      if(pass) db.users[idx].password=pass;
-    }else{
-      db.users.push({ id:'u-'+rid(), display, username, role, password:pass });
-    }
-    saveDB(db);
-    clear();
-    render();
+if(id){
+  const idx=db.users.findIndex(u=>u.id===id);
+  if(idx<0){ msg.textContent='Naudotojas nerastas.'; return; }
+
+  const updatedUser = await updateUserInSupabase(id, {
+    display,
+    username,
+    role,
+    password: pass || undefined
+  });
+
+  if(!updatedUser){
+    msg.textContent='Nepavyko išsaugoti į Supabase.';
+    return;
+  }
+
+  db.users[idx] = updatedUser;
+
+}else{
+  const newUser = {
+    id:'u-'+rid(),
+    display,
+    username,
+    role,
+    password:pass
+  };
+
+  const createdUser = await createUserInSupabase(newUser);
+
+  if(!createdUser){
+    msg.textContent='Nepavyko sukurti naudotojo Supabase.';
+    return;
+  }
+
+  db.users.push(createdUser);
+}
+
+saveDB(db);
+clear();
+render();
   };
 
   document.querySelectorAll('[data-edit-user]').forEach(b=>{
