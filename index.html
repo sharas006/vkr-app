@@ -167,6 +167,43 @@
     height:auto;
   }
 }
+  .groupBox{
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:#fff;
+  margin-bottom:12px;
+  overflow:hidden;
+}
+.groupHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:12px 14px;
+  cursor:pointer;
+  background:#f9fafb;
+}
+.groupHead.danger{
+  background:#fff5f5;
+  border-left:6px solid #ef4444;
+}
+.groupBody{
+  padding:12px;
+  border-top:1px solid var(--border);
+}
+.groupCount{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:999px;
+  font-size:12px;
+  border:1px solid #ddd;
+  background:#fff;
+}
+.caret{
+  font-size:14px;
+  opacity:.8;
+}
+
   </style>
 </head>
 <body>
@@ -677,7 +714,37 @@ function escapeHtml(s){
     .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
     .replaceAll('"','&quot;').replaceAll("'","&#039;");
 }
+function ensureAdminUiState(){
+  if(!db.session) db.session = {};
+  if(!db.session.adminCollapsed) db.session.adminCollapsed = {};
+}
 
+function groupTasksByEquip(tasks){
+  const map = {};
+
+  (tasks || []).forEach(t => {
+    const key = t.equipId || 'unknown';
+    if(!map[key]) map[key] = [];
+    map[key].push(t);
+  });
+
+  return Object.entries(map)
+    .map(([equipId, items]) => ({
+      equipId,
+      label: labelEquip(equipId),
+      items: sortNewestFirst(items)
+    }))
+    .sort((a,b) => a.label.localeCompare(b.label, 'lt'));
+}
+
+function taskIsAttention(t){
+  return t.status === 'Nauja' || t.status === 'Perduota vadovui';
+}
+
+function groupHasAttention(group){
+  return (group.items || []).some(taskIsAttention);
+
+}
 /* db */
 async function apiGetDB(){
   const r = await fetch(API_URL, { method:'GET', cache:'no-store' });
@@ -973,6 +1040,19 @@ function bindLogin(){
 /* ADMIN */
 function renderAdmin(root,user){
   const view = db.session.adminView || 'dashboard';
+  ensureAdminUiState();
+
+const newActiveCount = (db.tasks || []).filter(t =>
+  t.status === 'Nauja' || t.status === 'Vykdoma'
+).length;
+
+const waitingCount = (db.tasks || []).filter(t =>
+  t.status === 'Perduota vadovui' || t.status === 'Laukianti'
+).length;
+const approvalsCount = (db.approvals || []).length;
+const waitingAttentionCount = (db.tasks || []).filter(t =>
+  t.status === 'Perduota vadovui'
+).length;
 
   const tabs = `
     <div class="card">
@@ -988,9 +1068,16 @@ function renderAdmin(root,user){
       <div class="tabs" style="margin-top:10px">
         ${tabBtn('dashboard','Skydelis',view)}
         ${tabBtn('lube','Tepimai',view)}
-        ${tabBtn('tasks','Užduotys',view)}
-        ${tabBtn('waiting','Laukiančios',view)}
-        ${tabBtn('approvals','Patvirtinimai',view)}
+        <button class="btn ${view==='tasks' ? 'primary' : ''} ${newActiveCount ? 'blink' : ''}" data-tab="tasks">
+  Užduotys ${newActiveCount ? `(${newActiveCount})` : ''}
+</button>
+
+<button class="btn ${view==='waiting' ? 'primary' : ''} ${waitingAttentionCount ? 'blink' : ''}" data-tab="waiting">
+  Laukiančios ${waitingCount ? `(${waitingCount})` : ''}
+</button>
+        <button class="btn ${view==='approvals' ? 'primary' : ''} ${approvalsCount ? 'blink' : ''}" data-tab="approvals">
+  Patvirtinimai ${approvalsCount ? `(${approvalsCount})` : ''}
+</button>
         ${tabBtn('notes','Pastabos',view)}
         ${tabBtn('users','Naudotojai',view)}
         ${tabBtn('equip','Technika',view)}
@@ -1038,16 +1125,17 @@ function renderAdmin(root,user){
 }
 
 function adminDashboard(){
-const active = db.tasks.filter(t =>
-  t.status === 'Nauja' ||
-  t.status === 'Vykdoma' ||
-  t.status === 'Perduota vadovui' ||
-  t.status === 'Laukianti'
-).length;
+  const active = db.tasks.filter(t =>
+    t.status === 'Nauja' ||
+    t.status === 'Vykdoma' ||
+    t.status === 'Perduota vadovui' ||
+    t.status === 'Laukianti'
+  ).length;
 
-  const awaiting=db.approvals.length;
-  const notes=db.notes.length;
-  const users=db.users.length;
+  const awaiting = db.approvals.length;
+  const notes = db.notes.length;
+  const users = db.users.length;
+
   return `
     <div class="kpi">
       <div class="card"><div class="muted">Aktyvios užduotys</div><h2>${active}</h2></div>
@@ -1055,7 +1143,7 @@ const active = db.tasks.filter(t =>
       <div class="card"><div class="muted">Atviros pastabos</div><h2>${notes}</h2></div>
       <div class="card"><div class="muted">Naudotojai</div><h2>${users}</h2></div>
     </div>
-       </div>`;
+  `;
 }
 
 /* ADMIN – LUBE (peržiūra) */
@@ -1631,14 +1719,21 @@ function adminTasks(){
   const eqOpts=db.equipment.map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`).join('');
   const mechs=usersByRole('mechanic');
   const mechOpts=mechs.map(m=>`<option value="${m.id}">${escapeHtml(m.display||m.username)}</option>`).join('');
-const active = db.tasks.filter(t =>
-  t.status === 'Nauja' ||
-  t.status === 'Vykdoma'
-);
 
-  const cards=active.length?active.map(t=>{
+  const active = db.tasks.filter(t =>
+    t.status === 'Nauja' ||
+    t.status === 'Vykdoma'
+  );
+
+  const groups = groupTasksByEquip(active);
+
+  const cards = groups.length ? groups.map(group => {
+  const collapsed = !!db.session.adminCollapsed[`tasks_${group.equipId}`];
+  const headCls = 'groupHead' + (groupHasAttention(group) ? ' danger blink' : '');
+
+  const inner = group.items.map(t => {
     const log = t.progressLog || [];
-    const last = log.length ? log[log.length-1] : null;
+    const last = log.length ? log[log.length - 1] : null;
 
     const progressLine = last
       ? `<div class="muted">Paskutinis komentaras: ${escapeHtml(last.text||'')} (${escapeHtml(last.date||'')})</div>`
@@ -1646,47 +1741,58 @@ const active = db.tasks.filter(t =>
 
     return `
       <div class="card danger">
-<div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
-<b>${escapeHtml(t.title)}</b>
-<div class="muted">
-  Paliko: ${escapeHtml(t.createdBy || '—')}
-  ${t.createdByRole ? `(${escapeHtml(t.createdByRole)})` : ''}
-</div>
-        ${t.initialComment ? `<div class="muted" style="margin-top:4px;font-style:italic;">Užduoties komentaras: ${escapeHtml(t.initialComment)}</div>` : ''}
-<div class="muted">Priskirta: ${t.shared?'Bendra visiems':((t.assignedTo||[]).map(userDisplay).join(', ')||'—')}</div>
-<div class="muted"><b>Statusas:</b> ${escapeHtml(t.status || '—')}</div>
-${t.status === 'Perduota vadovui' ? `
-  <div class="muted" style="color:#b45309;font-weight:700">
-    Perduota vadovui
-  </div>
-` : ''}
+        <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
+        <b>${escapeHtml(t.title)}</b>
 
-${t.passedToManagerBy ? `
-  <div class="muted" style="font-size:12px">
-    Perdavė: ${escapeHtml(t.passedToManagerBy)}
-  </div>
-` : ''}
-${t.passedToManagerBy ? `
-  <div class="muted" style="font-size:12px">
-    Perdavė: ${escapeHtml(t.passedToManagerBy)} • ${escapeHtml(fmt(t.passedToManagerAt))}
-  </div>
-` : ''}
-${progressLine}
-<div class="muted">${escapeHtml(seenInfo(t))}</div>
-<div class="right" style="margin-top:6px">
-  <button class="btn" data-st="${t.id}|Nauja">Nauja</button>
-  <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
-  <button class="btn amber" data-wait="${t.id}">Palikti laukiančią</button>
-  ${t.status === 'Perduota vadovui' || t.status === 'Laukianti' ? `<button class="btn primary" data-reopen="${t.id}">Aktyvuoti darbui</button>` : ''}
-  <button class="btn green" data-finish="${t.id}">Baigta (siųsti patvirtinimui)</button>
-</div>
-<div style="margin-top:10px">
-  <div class="muted">Vadovo komentaras / situacija</div>
-  <textarea class="adminWaitComment" data-id="${t.id}" placeholder="Pvz.: užsakytos dalys, laukiam tiekėjo atsakymo, planuojamas remontas kitą savaitę..."></textarea>
-</div>
+        <div class="muted">
+          Paliko: ${escapeHtml(t.createdBy || '—')}
+          ${t.createdByRole ? `(${escapeHtml(t.createdByRole)})` : ''}
+        </div>
+
+        ${t.initialComment ? `<div class="muted" style="margin-top:4px;font-style:italic;">Užduoties komentaras: ${escapeHtml(t.initialComment)}</div>` : ''}
+        <div class="muted">Priskirta: ${t.shared ? 'Bendra visiems' : ((t.assignedTo||[]).map(userDisplay).join(', ')||'—')}</div>
+        <div class="muted"><b>Statusas:</b> ${escapeHtml(t.status || '—')}</div>
+
+        ${t.passedToManagerBy ? `
+          <div class="muted" style="font-size:12px">
+            Perdavė: ${escapeHtml(t.passedToManagerBy)} • ${escapeHtml(fmt(t.passedToManagerAt))}
+          </div>
+        ` : ''}
+
+        ${progressLine}
+        <div class="muted">${escapeHtml(seenInfo(t))}</div>
+
+        <div class="right" style="margin-top:6px">
+          <button class="btn" data-st="${t.id}|Nauja">Nauja</button>
+          <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
+          <button class="btn amber" data-wait="${t.id}">Palikti laukiančią</button>
+          <button class="btn green" data-finish="${t.id}">Baigta (siųsti patvirtinimui)</button>
+        </div>
+
+        <div style="margin-top:10px">
+          <div class="muted">Vadovo komentaras / situacija</div>
+          <textarea class="adminWaitComment" data-id="${t.id}" placeholder="Pvz.: užsakytos dalys, laukiam tiekėjo atsakymo..."></textarea>
+        </div>
       </div>
     `;
-  }).join(''):'<div class="muted">Aktyvių užduočių nėra</div>';
+  }).join('');
+
+  return `
+    <div class="groupBox">
+      <div class="${headCls}" data-admin-group="tasks_${group.equipId}">
+        <div>
+          <b>${escapeHtml(group.label)}</b>
+          <div class="muted" style="font-size:12px">Užduočių: ${group.items.length}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="groupCount">${group.items.length}</span>
+          <span class="caret">${collapsed ? '▸' : '▾'}</span>
+        </div>
+      </div>
+      ${collapsed ? '' : `<div class="groupBody">${inner}</div>`}
+    </div>
+  `;
+}).join('') : '<div class="muted">Aktyvių užduočių nėra</div>';
 
   return `
     <div class="card">
@@ -1719,8 +1825,12 @@ function adminWaitingTasks(){
   const waiting = (db.tasks || []).filter(t =>
     t.status === 'Perduota vadovui' || t.status === 'Laukianti'
   );
+  const groups = groupTasksByEquip(waiting);
+const cards = groups.length ? groups.map(group => {
+  const collapsed = !!db.session.adminCollapsed[`waiting_${group.equipId}`];
+  const headCls = 'groupHead' + (groupHasAttention(group) ? ' danger blink' : '');
 
-  const cards = waiting.length ? waiting.map(t=>{
+  const inner = group.items.map(t => {
     const log = t.progressLog || [];
 
     const progressHtml = log.length ? `
@@ -1765,7 +1875,24 @@ function adminWaitingTasks(){
         </div>
       </div>
     `;
-  }).join('') : '<div class="card"><div class="muted">Laukiančių užduočių nėra</div></div>';
+  }).join('');
+
+  return `
+    <div class="groupBox">
+      <div class="${headCls}" data-admin-group="waiting_${group.equipId}">
+        <div>
+          <b>${escapeHtml(group.label)}</b>
+          <div class="muted" style="font-size:12px">Įrašų: ${group.items.length}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="groupCount">${group.items.length}</span>
+          <span class="caret">${collapsed ? '▸' : '▾'}</span>
+        </div>
+      </div>
+      ${collapsed ? '' : `<div class="groupBody">${inner}</div>`}
+    </div>
+  `;
+}).join('') : '<div class="card"><div class="muted">Laukiančių užduočių nėra</div></div>';
 
   return `
     <div class="card">
@@ -1776,6 +1903,15 @@ function adminWaitingTasks(){
 }
 
 function bindAdminTasks(){
+  document.querySelectorAll('[data-admin-group]').forEach(el => {
+    el.onclick = () => {
+      const key = el.getAttribute('data-admin-group');
+      db.session.adminCollapsed[key] = !db.session.adminCollapsed[key];
+      saveDB_local(db);
+      render();
+    };
+  });
+
   const eqSearch = document.getElementById('tEquipSearch');
   const eqSelect = document.getElementById('tEquip');
 
@@ -1936,12 +2072,16 @@ function bindAdminTasks(){
   });
 
   document.querySelectorAll('[data-finish]').forEach(b=>{
+
     b.onclick = ()=>{
       const id = b.getAttribute('data-finish');
       const t = db.tasks.find(x=>x.id===id);
       if(!t) return;
 
       t.status = 'Laukia patvirtinimo';
+      if(db.session.opRunningByEquip && db.session.opRunningByEquip[t.equipId] === t.id){
+  delete db.session.opRunningByEquip[t.equipId];
+}
       db.approvals.unshift({
         id: rid(),
         taskId: t.id,
@@ -1964,20 +2104,34 @@ function bindAdminTasks(){
 }
 
 function bindAdminWaitingTasks(){
-  document.querySelectorAll('[data-wait]').forEach(b=>{
-    b.onclick = ()=>{
-      const id = b.getAttribute('data-wait');
-      const t = db.tasks.find(x=>x.id===id);
-      if(!t) return;
+  document.querySelectorAll('[data-admin-group]').forEach(el => {
+    el.onclick = () => {
+      const key = el.getAttribute('data-admin-group');
+      db.session.adminCollapsed[key] = !db.session.adminCollapsed[key];
+      saveDB_local(db);
+      render();
+    };
+  });
 
-      const card = b.closest('.card');
+document.querySelectorAll('[data-wait]').forEach(b => {
+  b.onclick = async (e) => {
+    e.stopPropagation();
+
+    const id = b.getAttribute('data-wait');
+    const t = db.tasks.find(x => x.id === id);
+      if(!t){
+        alert('Užduotis nerasta');
+        return;
+      }
+
+      const card = b.closest('.card.danger') || b.closest('.card');
       const ta = card ? card.querySelector('.adminWaitComment') : null;
       const comment = ta ? safeTrim(ta.value) : '';
 
-      if(!t.progressLog) t.progressLog = [];
+      const newProgressLog = Array.isArray(t.progressLog) ? [...t.progressLog] : [];
 
       if(comment){
-        t.progressLog.push({
+        newProgressLog.push({
           id: rid(),
           date: fmt(Date.now()),
           byId: currentUser()?.id || null,
@@ -1986,45 +2140,54 @@ function bindAdminWaitingTasks(){
         });
       }
 
-      updateTaskInSupabase(t.id, {
+      const updatedTask = await updateTaskInSupabase(t.id, {
         status: 'Laukianti',
-        progressLog: t.progressLog || []
-      }).then(updatedTask => {
-        if(!updatedTask){
-          alert('Nepavyko išsaugoti laukiančios būsenos');
-          return;
-        }
-
-        const idx = db.tasks.findIndex(x => x.id === t.id);
-        if(idx >= 0) db.tasks[idx] = updatedTask;
-
-        saveDB_local(db);
-        render();
+        progressLog: newProgressLog
       });
+
+      if(!updatedTask){
+        alert('Nepavyko išsaugoti laukiančios būsenos');
+        return;
+      }
+
+      const idx = db.tasks.findIndex(x => x.id === t.id);
+      if(idx >= 0){
+        db.tasks[idx] = updatedTask;
+      }
+
+      saveDB_local(db);
+      render();
     };
   });
 
-  document.querySelectorAll('[data-reopen]').forEach(b=>{
-    b.onclick = ()=>{
-      const id = b.getAttribute('data-reopen');
-      const t = db.tasks.find(x=>x.id===id);
-      if(!t) return;
+  document.querySelectorAll('[data-reopen]').forEach(b => {
+    b.onclick = async (e) => {
+      e.stopPropagation();
 
-      updateTaskInSupabase(t.id, {
+      const id = b.getAttribute('data-reopen');
+      const t = db.tasks.find(x => x.id === id);
+      if(!t){
+        alert('Užduotis nerasta');
+        return;
+      }
+
+      const updatedTask = await updateTaskInSupabase(t.id, {
         status: 'Nauja',
         progressLog: t.progressLog || []
-      }).then(updatedTask => {
-        if(!updatedTask){
-          alert('Nepavyko aktyvuoti darbui');
-          return;
-        }
-
-        const idx = db.tasks.findIndex(x => x.id === t.id);
-        if(idx >= 0) db.tasks[idx] = updatedTask;
-
-        saveDB_local(db);
-        render();
       });
+
+      if(!updatedTask){
+        alert('Nepavyko aktyvuoti darbui');
+        return;
+      }
+
+      const idx = db.tasks.findIndex(x => x.id === t.id);
+      if(idx >= 0){
+        db.tasks[idx] = updatedTask;
+      }
+
+      saveDB_local(db);
+      render();
     };
   });
 }
@@ -2739,16 +2902,16 @@ if (view === 'repair') {
           <input id="repStart" value="${escapeHtml(runningTask ? (runningTask.startHM || '') : '')}" placeholder="${escapeHtml(nowHM())}">
         </div>
         <div class="right" style="align-items:flex-end">
-          <button class="btn" id="repStartBtn" ${runningTask ? 'disabled' : ''}>Pradėti</button>
-          <button class="btn primary" id="repFinishBtn" ${runningTask ? '' : 'disabled'}>Remonto pabaiga</button>
+        <button class="btn" id="repStartBtn" ${runningTask ? 'disabled' : ''}>Pradėti</button>
+        <button class="btn primary" id="repFinishBtn" disabled>Uždaro mechanikas / vadovas</button>
         </div>
       </div>
 
-      <div class="muted" style="margin-top:8px">
-        ${runningTask
-          ? 'Vykdomas remontas matomas mechanikams ir vadovui.'
-          : 'Po „Pradėti“ remontas bus matomas mechanikams ir vadovui (raudonas, viršuje).'}
-      </div>
+<div class="muted" style="margin-top:8px">
+  ${runningTask
+    ? 'Gedimas užregistruotas. Užduotį užbaigti gali tik mechanikas arba vadovas.'
+    : 'Po „Pradėti“ gedimas bus perduotas mechanikams ir vadovui. Uždaryti galės tik mechanikas arba vadovas.'}
+</div>
     </div>
   `;
 
@@ -2802,50 +2965,8 @@ const task = {
 }
 
 if (finBtn) {
-  finBtn.onclick = async () => {
-    const taskId = db.session.opRunningByEquip[eid];
-    if (!taskId) {
-      alert('Remontas nepradėtas.');
-      return;
-    }
-
-    const task = (db.tasks || []).find(t => t.id === taskId);
-    if (!task) {
-      alert('Užduotis nerasta.');
-      return;
-    }
-
-    const updatedTask = await updateTaskInSupabase(task.id, {
-      status: 'Laukia patvirtinimo',
-      progressLog: task.progressLog || []
-    });
-
-    if(!updatedTask){
-      alert('Nepavyko užbaigti remonto.');
-      return;
-    }
-
-    const idx = db.tasks.findIndex(x => x.id === task.id);
-    if(idx >= 0) db.tasks[idx] = updatedTask;
-    db.approvals.unshift({
-  id: rid(),
-  taskId: updatedTask.id,
-  equipId: updatedTask.equipId,
-  issue: updatedTask.title,
-  date: today(),
-  start: document.getElementById('repStart').value || nowHM(),
-  durationMin: 30,
-  doneBy: (user.display || user.username),
-  doneById: user.id,
-  role: 'operatorius',
-  comment: ''
-});
-
-    delete db.session.opRunningByEquip[eid];
-
-    saveDB_local(db);
-    alert('Remontas užbaigtas ir išsiųstas patvirtinimui.');
-    render();
+  finBtn.onclick = () => {
+    alert('Šią užduotį užbaigti gali tik mechanikas arba vadovas.');
   };
 }
 
@@ -3233,52 +3354,66 @@ document.querySelectorAll('[data-pass-manager]').forEach(b=>{
     };
   });
 
-  document.querySelectorAll('[data-done]').forEach(b=>{
-    b.onclick = ()=>{
-      const id = b.getAttribute('data-done');
-      const t = db.tasks.find(x=>x.id===id);
-      if(!t) return;
+document.querySelectorAll('[data-done]').forEach(b=>{
+  b.onclick = async ()=>{
+    const id = b.getAttribute('data-done');
+    const t = db.tasks.find(x=>x.id===id);
+    if(!t) return;
 
-      const card = b.closest('.card');
-      const ta = card ? card.querySelector('.mechComment') : null;
-      const comment = ta ? safeTrim(ta.value) : '';
+    const card = b.closest('.card');
+    const ta = card ? card.querySelector('.mechComment') : null;
+    const comment = ta ? safeTrim(ta.value) : '';
 
-      if(comment){
-        if(!t.progressLog) t.progressLog = [];
-        t.progressLog.push({
-          id: rid(),
-          date: fmt(Date.now()),
-          byId: user.id,
-          byName: (user.display || user.username),
-          text: comment
-        });
-      }
+    let newProgressLog = Array.isArray(t.progressLog) ? [...t.progressLog] : [];
 
-      const sel = card ? card.querySelector('.helperSelect') : null;
-      const helpers = sel ? Array.from(sel.selectedOptions).map(o=>o.value) : [];
-
-      t.status = 'Laukia patvirtinimo';
-
-      db.approvals.unshift({
+    if(comment){
+      newProgressLog.push({
         id: rid(),
-        taskId: t.id,
-        equipId: t.equipId,
-        issue: t.title,
-        date: today(),
-        start: nowHM(),
-        durationMin: 30,
-        doneBy: (user.display || user.username),
-        doneById: user.id,
-        role: 'mechanikas',
-        comment: comment,
-        initialComment: t.initialComment || '',
-        helpers: helpers
+        date: fmt(Date.now()),
+        byId: user.id,
+        byName: (user.display || user.username),
+        text: comment
       });
+    }
 
-      saveDB(db);
-      render();
-    };
-  });
+    const sel = card ? card.querySelector('.helperSelect') : null;
+    const helpers = sel ? Array.from(sel.selectedOptions).map(o=>o.value) : [];
+
+    const updatedTask = await updateTaskInSupabase(t.id, {
+      status: 'Laukia patvirtinimo',
+      progressLog: newProgressLog
+    });
+
+    if(!updatedTask){
+      alert('Nepavyko užbaigti užduoties');
+      return;
+    }
+
+    const idx = db.tasks.findIndex(x => x.id === t.id);
+    if(idx >= 0){
+      db.tasks[idx] = updatedTask;
+    }
+
+    db.approvals.unshift({
+      id: rid(),
+      taskId: updatedTask.id,
+      equipId: updatedTask.equipId,
+      issue: updatedTask.title,
+      date: today(),
+      start: nowHM(),
+      durationMin: 30,
+      doneBy: (user.display || user.username),
+      doneById: user.id,
+      role: 'mechanikas',
+      comment: comment,
+      initialComment: updatedTask.initialComment || '',
+      helpers: helpers
+    });
+
+    saveDB(db);
+    render();
+  };
+});
 
   const create = document.getElementById('mCreate');
   if(create){
