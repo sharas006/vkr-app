@@ -195,20 +195,26 @@ async function loadTasksFromSupabase(){
     return [];
   }
 
-  return (data || []).map(t => ({
-    id: t.id,
-    equipId: t.equip_id,
-    title: t.title,
-    status: t.status,
-    assignedTo: Array.isArray(t.assigned_to) ? t.assigned_to : [],
-    shared: !!t.shared,
-    source: t.source || '',
-    createdAt: t.created_at ? new Date(t.created_at).getTime() : Date.now(),
-    initialComment: t.initial_comment || '',
-    fromNoteId: t.from_note_id || null,
-    seenBy: t.seen_by || {},
-    progressLog: Array.isArray(t.progress_log) ? t.progress_log : []
-  }));
+return (data || []).map(t => ({
+  id: t.id,
+  equipId: t.equip_id,
+  title: t.title,
+  status: t.status,
+  assignedTo: Array.isArray(t.assigned_to) ? t.assigned_to : [],
+  shared: !!t.shared,
+  source: t.source || '',
+  createdAt: t.created_at ? new Date(t.created_at).getTime() : Date.now(),
+  initialComment: t.initial_comment || '',
+  fromNoteId: t.from_note_id || null,
+  seenBy: t.seen_by || {},
+  progressLog: Array.isArray(t.progress_log) ? t.progress_log : [],
+  passedToManagerAt: t.passed_to_manager_at || null,
+  passedToManagerBy: t.passed_to_manager_by || '',
+  passedToManagerById: t.passed_to_manager_by_id || null,
+  createdBy: t.created_by || '',
+  createdById: t.created_by_id || null,
+  createdByRole: t.created_by_role || ''
+}));
 }
 
 async function loadUsersFromSupabase(){
@@ -222,22 +228,23 @@ async function loadUsersFromSupabase(){
     return [];
   }
 
-  return (data || []).map(u => ({
-    id: u.id,
-    username: u.username,
-    display: u.name || u.username,
-    role: u.role,
-    password: u.password
-  }));
+return (data || []).map(u => ({
+  id: u.id,
+  username: u.username,
+  display: u.name || u.username,
+  role: u.role,
+  password: u.password,
+  equipId: u.equip_id || null
+}));
 }
 
 async function updateUserInSupabase(userId, updates){
   const payload = {};
-
   if(updates.display !== undefined) payload.name = updates.display;
   if(updates.username !== undefined) payload.username = updates.username;
   if(updates.role !== undefined) payload.role = updates.role;
   if(updates.password !== undefined) payload.password = updates.password;
+  if(updates.equipId !== undefined) payload.equip_id = updates.equipId;
 
   const { data, error } = await sb
     .from('users')
@@ -256,7 +263,8 @@ async function updateUserInSupabase(userId, updates){
     username: data.username,
     display: data.name || data.username,
     role: data.role,
-    password: data.password
+    password: data.password,
+    equipId: data.equip_id || null
   };
 }
 
@@ -265,7 +273,8 @@ async function createUserInSupabase(user){
     name: user.display,
     username: user.username,
     role: user.role,
-    password: user.password
+    password: user.password,
+    equip_id: user.equipId || null
   };
 
   const { data, error } = await sb
@@ -284,13 +293,17 @@ async function createUserInSupabase(user){
     username: data.username,
     display: data.name || data.username,
     role: data.role,
-    password: data.password
+    password: data.password,
+    equipId: data.equip_id || null
   };
 }
 
 async function updateTaskInSupabase(taskId, updates){
   const payload = {};
 
+  if(updates.passedToManagerAt !== undefined) payload.passed_to_manager_at = updates.passedToManagerAt;
+  if(updates.passedToManagerBy !== undefined) payload.passed_to_manager_by = updates.passedToManagerBy;
+  if(updates.passedToManagerById !== undefined) payload.passed_to_manager_by_id = updates.passedToManagerById;
   if(updates.equipId !== undefined) payload.equip_id = updates.equipId;
   if(updates.title !== undefined) payload.title = updates.title;
   if(updates.status !== undefined) payload.status = updates.status;
@@ -301,6 +314,9 @@ async function updateTaskInSupabase(taskId, updates){
   if(updates.fromNoteId !== undefined) payload.from_note_id = updates.fromNoteId;
   if(updates.seenBy !== undefined) payload.seen_by = updates.seenBy;
   if(updates.progressLog !== undefined) payload.progress_log = updates.progressLog;
+  if(updates.createdBy !== undefined) payload.created_by = updates.createdBy;
+  if(updates.createdById !== undefined) payload.created_by_id = updates.createdById;
+  if(updates.createdByRole !== undefined) payload.created_by_role = updates.createdByRole;
 
   const { data, error } = await sb
     .from('tasks')
@@ -315,34 +331,43 @@ async function updateTaskInSupabase(taskId, updates){
   }
 
   return {
-    id: data.id,
-    equipId: data.equip_id,
-    title: data.title,
-    status: data.status,
-    assignedTo: Array.isArray(data.assigned_to) ? data.assigned_to : [],
-    shared: !!data.shared,
-    source: data.source || '',
-    createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
-    initialComment: data.initial_comment || '',
-    fromNoteId: data.from_note_id || null,
-    seenBy: data.seen_by || {},
-    progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
-  };
+  id: data.id,
+  equipId: data.equip_id,
+  title: data.title,
+  status: data.status,
+  assignedTo: Array.isArray(data.assigned_to) ? data.assigned_to : [],
+  shared: !!data.shared,
+  source: data.source || '',
+  createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
+  initialComment: data.initial_comment || '',
+  fromNoteId: data.from_note_id || null,
+  seenBy: data.seen_by || {},
+  progressLog: Array.isArray(data.progress_log) ? data.progress_log : [],
+  passedToManagerAt: data.passed_to_manager_at || null,
+  passedToManagerBy: data.passed_to_manager_by || '',
+  passedToManagerById: data.passed_to_manager_by_id || null,
+  createdBy: data.created_by || '',
+  createdById: data.created_by_id || null,
+  createdByRole: data.created_by_role || ''
+};
 }
 
 async function createTaskInSupabase(task){
-  const payload = {
-    equip_id: task.equipId,
-    title: task.title,
-    status: task.status || 'Nauja',
-    assigned_to: task.assignedTo || [],
-    shared: !!task.shared,
-    source: task.source || 'admin',
-    initial_comment: task.initialComment || null,
-    from_note_id: task.fromNoteId || null,
-    seen_by: task.seenBy || {},
-    progress_log: task.progressLog || []
-  };
+const payload = {
+  equip_id: task.equipId,
+  title: task.title,
+  status: task.status || 'Nauja',
+  assigned_to: task.assignedTo || [],
+  shared: !!task.shared,
+  source: task.source || 'admin',
+  initial_comment: task.initialComment || null,
+  from_note_id: task.fromNoteId || null,
+  seen_by: task.seenBy || {},
+  progress_log: task.progressLog || [],
+  created_by: task.createdBy || null,
+  created_by_id: task.createdById || null,
+  created_by_role: task.createdByRole || null
+};
 
   const { data, error } = await sb
     .from('tasks')
@@ -355,21 +380,28 @@ async function createTaskInSupabase(task){
     return null;
   }
 
-  return {
-    id: data.id,
-    equipId: data.equip_id,
-    title: data.title,
-    status: data.status,
-    assignedTo: Array.isArray(data.assigned_to) ? data.assigned_to : [],
-    shared: !!data.shared,
-    source: data.source || '',
-    createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
-    initialComment: data.initial_comment || '',
-    fromNoteId: data.from_note_id || null,
-    seenBy: data.seen_by || {},
-    progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
-  };
+return {
+  id: data.id,
+  equipId: data.equip_id,
+  title: data.title,
+  status: data.status,
+  assignedTo: Array.isArray(data.assigned_to) ? data.assigned_to : [],
+  shared: !!data.shared,
+  source: data.source || '',
+  createdAt: data.created_at ? new Date(data.created_at).getTime() : Date.now(),
+  initialComment: data.initial_comment || '',
+  fromNoteId: data.from_note_id || null,
+  seenBy: data.seen_by || {},
+  progressLog: Array.isArray(data.progress_log) ? data.progress_log : [],
+  passedToManagerAt: data.passed_to_manager_at || null,
+  passedToManagerBy: data.passed_to_manager_by || '',
+  passedToManagerById: data.passed_to_manager_by_id || null,
+  createdBy: data.created_by || '',
+  createdById: data.created_by_id || null,
+  createdByRole: data.created_by_role || ''
+};
 }
+
 async function loadEquipmentFromSupabase(){
   const { data, error } = await sb
     .from('equipment')
@@ -578,6 +610,8 @@ async function deleteGrabFromSupabase(grabId){
 function rid(){ return 'id'+Math.random().toString(16).slice(2)+Math.random().toString(16).slice(2); }
 function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
 function nowHM(){ const d=new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+function ensureDailyChecks(){if(!db.dailyChecks) db.dailyChecks = [];}
+function hasTodayCheck(eid){ensureDailyChecks();return db.dailyChecks.some(x => x.equipId === eid &&  x.date === today() );}
 function parentOfAsset(assetId){
   if(!db || !Array.isArray(db.grabs)) return '—';
   const g = db.grabs.find(x => x && x.id === assetId);
@@ -594,12 +628,25 @@ function seenInfo(t){
 function isSeen(t, userId){
   return !!(t.seenBy && t.seenBy[userId]);
 }
+
 function mechanicVisibleTasks(userId){
   return (db.tasks||[]).filter(t=>{
-    const active = (t.status==='Nauja' || t.status==='Vykdoma');
-    return active;
+    return (
+      t.status === 'Nauja' ||
+      t.status === 'Vykdoma'
+    );
   });
 }
+
+function mechanicWaitingTasks(userId){
+  return (db.tasks||[]).filter(t=>{
+    return (
+      t.status === 'Perduota vadovui' ||
+      t.status === 'Laukianti'
+    );
+  });
+}
+
 function unseenForMechanic(userId){
   return mechanicVisibleTasks(userId).filter(t=>!isSeen(t,userId));
 }
@@ -675,34 +722,35 @@ async function saveDB(dbObj){
 
 
 function seedDB(){
-  const db = {
-    version: 1,
-    session: {
-      userId: null,
-      currentUser: null,
-      adminView:'dashboard',
-      opView:'home',
-      mechView:'tasks',
-      opEquipId:null
-    },
-    users: [],
-    equipment: [
-      { id:'terberg-106', type:'Terberg', num:'106', name:'', model:'' },
-      { id:'linde-23', type:'Linde krautuvas', num:'23', name:'', model:'' },
-      { id:'lhm-03', type:'Liebherr LHM400', num:'03', name:'', model:'' }
-    ],
-    grabs: [
-      { id:'gr-ecrane-metal', label:'E-Crane – metalinis greiferis', parentEquipId:'lhm-03' },
-      { id:'gr-ecrane-bulk',  label:'E-Crane – birių greiferis', parentEquipId:'lhm-03' },
-      { id:'gr-sokol-metal',  label:'Sokol – metalinis greiferis', parentEquipId:'terberg-106' },
-      { id:'gr-sokol-bulk',   label:'Sokol – birių greiferis', parentEquipId:'terberg-106' }
-    ],
-    tasks: [],
-    approvals: [],
-    notes: [],
-    completed: [],
-    lube: {}
-  };
+const db = {
+  version: 1,
+  session: {
+    userId: null,
+    currentUser: null,
+    adminView:'dashboard',
+    opView:'home',
+    mechView:'tasks',
+    opEquipId:null
+  },
+  users: [],
+  equipment: [
+    { id:'terberg-106', type:'Terberg', num:'106', name:'', model:'' },
+    { id:'linde-23', type:'Linde krautuvas', num:'23', name:'', model:'' },
+    { id:'lhm-03', type:'Liebherr LHM400', num:'03', name:'', model:'' }
+  ],
+  grabs: [
+    { id:'gr-ecrane-metal', label:'E-Crane – metalinis greiferis', parentEquipId:'lhm-03' },
+    { id:'gr-ecrane-bulk',  label:'E-Crane – birių greiferis', parentEquipId:'lhm-03' },
+    { id:'gr-sokol-metal',  label:'Sokol – metalinis greiferis', parentEquipId:'terberg-106' },
+    { id:'gr-sokol-bulk',   label:'Sokol – birių greiferis', parentEquipId:'terberg-106' }
+  ],
+  tasks: [],
+  approvals: [],
+  notes: [],
+  completed: [],
+  lube: {},
+  dailyChecks: []
+};
 
   // demo users
   db.users.push({ id:'u-sarunas', username:'sarunas', display:'Šarūnas', role:'operator', password:'123' });
@@ -777,7 +825,8 @@ const normalizedUser = {
   username: data.username,
   display: data.name || data.username,
   role: data.role,
-  password: data.password
+  password: data.password,
+  equipId: data.equip_id || null
 };
 
 db.session.userId = normalizedUser.id;
@@ -940,6 +989,7 @@ function renderAdmin(root,user){
         ${tabBtn('dashboard','Skydelis',view)}
         ${tabBtn('lube','Tepimai',view)}
         ${tabBtn('tasks','Užduotys',view)}
+        ${tabBtn('waiting','Laukiančios',view)}
         ${tabBtn('approvals','Patvirtinimai',view)}
         ${tabBtn('notes','Pastabos',view)}
         ${tabBtn('users','Naudotojai',view)}
@@ -954,6 +1004,7 @@ function renderAdmin(root,user){
   if(view==='dashboard') mid = adminDashboard();
   else if(view==='lube') mid = adminLube();
   else if(view==='tasks') mid = adminTasks();
+  else if(view==='waiting') mid = adminWaitingTasks();
   else if(view==='approvals') mid = adminApprovals();
   else if(view==='notes') mid = adminNotes(user);
   else if(view==='users') mid = adminUsers();
@@ -977,6 +1028,7 @@ function renderAdmin(root,user){
   if(view==='users') bindAdminUsers();
   if(view==='equip') bindAdminEquip();
   if(view==='tasks') bindAdminTasks();
+  if(view==='waiting') bindAdminWaitingTasks();
   if(view==='approvals') bindAdminApprovals();
   if(view==='notes') bindAdminNotes(user);
   if(view==='password') bindChangePassword(user);
@@ -986,7 +1038,13 @@ function renderAdmin(root,user){
 }
 
 function adminDashboard(){
-  const active=db.tasks.filter(t=>t.status==='Nauja'||t.status==='Vykdoma').length;
+const active = db.tasks.filter(t =>
+  t.status === 'Nauja' ||
+  t.status === 'Vykdoma' ||
+  t.status === 'Perduota vadovui' ||
+  t.status === 'Laukianti'
+).length;
+
   const awaiting=db.approvals.length;
   const notes=db.notes.length;
   const users=db.users.length;
@@ -1309,18 +1367,29 @@ function adminUsers(){
     </div>
     <div class="card">
       <h3 style="margin-top:0">Pridėti / Keisti</h3>
-      <div class="row row-4">
-        <div><div class="muted">Vardas (rodyti)</div><input id="uDisplay" placeholder="pvz. Rolandas Paškevičius"></div>
-        <div><div class="muted">Username</div><input id="uUsername" placeholder="pvz. rolandas"></div>
-        <div><div class="muted">Rolė</div>
-          <select id="uRole">
-            <option value="operator">operator</option>
-            <option value="mechanic">mechanic</option>
-            <option value="admin">admin</option>
-          </select>
-        </div>
-        <div><div class="muted">Slaptažodis</div><input id="uPass" placeholder="pvz. 1234 (keisti nebūtina)"></div>
-      </div>
+      <div class="row">
+  <div><div class="muted">Vardas (rodyti)</div><input id="uDisplay" placeholder="pvz. Rolandas Paškevičius"></div>
+
+  <div><div class="muted">Username</div><input id="uUsername" placeholder="pvz. rolandas"></div>
+
+  <div><div class="muted">Rolė</div>
+    <select id="uRole">
+      <option value="operator">operator</option>
+      <option value="mechanic">mechanic</option>
+      <option value="admin">admin</option>
+    </select>
+  </div>
+
+  <div><div class="muted">Slaptažodis</div><input id="uPass" placeholder="pvz. 1234 (keisti nebūtina)"></div>
+
+  <div>
+    <div class="muted">Priskirta technika</div>
+    <select id="uEquip">
+      <option value="">— Nepriskirta —</option>
+      ${db.equipment.map(e => `<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`).join('')}
+    </select>
+  </div>
+</div>
       <input type="hidden" id="uId">
       <div class="right" style="margin-top:10px">
         <button class="btn" id="uClear">Išvalyti</button>
@@ -1335,9 +1404,18 @@ function bindAdminUsers(){
   const unEl=document.getElementById('uUsername');
   const rEl=document.getElementById('uRole');
   const pEl=document.getElementById('uPass');
+  const eqEl=document.getElementById('uEquip');
   const msg=document.getElementById('uMsg');
 
-  function clear(){ idEl.value=''; dEl.value=''; unEl.value=''; rEl.value='operator'; pEl.value=''; msg.textContent=''; }
+  function clear(){
+  idEl.value='';
+  dEl.value='';
+  unEl.value='';
+  rEl.value='operator';
+  pEl.value='';
+  if(eqEl) eqEl.value='';
+  msg.textContent='';
+}
   document.getElementById('uClear').onclick=clear;
 
   document.getElementById('uSave').onclick=async ()=>{
@@ -1347,6 +1425,7 @@ function bindAdminUsers(){
     const username=safeTrim(unEl.value);
     const role=rEl.value;
     const pass=safeTrim(pEl.value);
+    const equipId = eqEl ? eqEl.value : '';
 
     if(!username){ msg.textContent='Reikia username.'; return; }
     if(!display){ msg.textContent='Reikia vardo.'; return; }
@@ -1359,12 +1438,13 @@ if(id){
   const idx=db.users.findIndex(u=>u.id===id);
   if(idx<0){ msg.textContent='Naudotojas nerastas.'; return; }
 
-  const updatedUser = await updateUserInSupabase(id, {
-    display,
-    username,
-    role,
-    password: pass || undefined
-  });
+const updatedUser = await updateUserInSupabase(id, {
+  display,
+  username,
+  role,
+  password: pass || undefined,
+  equipId: role === 'operator' ? (equipId || null) : null
+});
 
   if(!updatedUser){
     msg.textContent='Nepavyko išsaugoti į Supabase.';
@@ -1374,12 +1454,13 @@ if(id){
   db.users[idx] = updatedUser;
 
 }else{
-  const createdUser = await createUserInSupabase({
-    display,
-    username,
-    role,
-    password: pass
-  });
+const createdUser = await createUserInSupabase({
+  display,
+  username,
+  role,
+  password: pass,
+  equipId: role === 'operator' ? (equipId || null) : null
+});
 
   if(!createdUser){
     msg.textContent='Nepavyko sukurti naudotojo Supabase.';
@@ -1399,8 +1480,13 @@ render();
       const id=b.getAttribute('data-edit-user');
       const u=db.users.find(x=>x.id===id);
       if(!u) return;
-      idEl.value=u.id; dEl.value=u.display||''; unEl.value=u.username||''; rEl.value=u.role||'operator'; pEl.value='';
-      msg.textContent='Redaguoji: '+(u.display||u.username);
+      idEl.value=u.id;
+dEl.value=u.display||'';
+unEl.value=u.username||'';
+rEl.value=u.role||'operator';
+pEl.value='';
+if(eqEl) eqEl.value = u.equipId || '';
+msg.textContent='Redaguoji: '+(u.display||u.username);
     };
   });
   document.querySelectorAll('[data-del-user]').forEach(b=>{
@@ -1545,7 +1631,10 @@ function adminTasks(){
   const eqOpts=db.equipment.map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`).join('');
   const mechs=usersByRole('mechanic');
   const mechOpts=mechs.map(m=>`<option value="${m.id}">${escapeHtml(m.display||m.username)}</option>`).join('');
-  const active=db.tasks.filter(t=>t.status==='Nauja'||t.status==='Vykdoma');
+const active = db.tasks.filter(t =>
+  t.status === 'Nauja' ||
+  t.status === 'Vykdoma'
+);
 
   const cards=active.length?active.map(t=>{
     const log = t.progressLog || [];
@@ -1557,18 +1646,44 @@ function adminTasks(){
 
     return `
       <div class="card danger">
-        <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
-        <b>${escapeHtml(t.title)}</b>
+<div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
+<b>${escapeHtml(t.title)}</b>
+<div class="muted">
+  Paliko: ${escapeHtml(t.createdBy || '—')}
+  ${t.createdByRole ? `(${escapeHtml(t.createdByRole)})` : ''}
+</div>
         ${t.initialComment ? `<div class="muted" style="margin-top:4px;font-style:italic;">Užduoties komentaras: ${escapeHtml(t.initialComment)}</div>` : ''}
 <div class="muted">Priskirta: ${t.shared?'Bendra visiems':((t.assignedTo||[]).map(userDisplay).join(', ')||'—')}</div>
 <div class="muted"><b>Statusas:</b> ${escapeHtml(t.status || '—')}</div>
+${t.status === 'Perduota vadovui' ? `
+  <div class="muted" style="color:#b45309;font-weight:700">
+    Perduota vadovui
+  </div>
+` : ''}
+
+${t.passedToManagerBy ? `
+  <div class="muted" style="font-size:12px">
+    Perdavė: ${escapeHtml(t.passedToManagerBy)}
+  </div>
+` : ''}
+${t.passedToManagerBy ? `
+  <div class="muted" style="font-size:12px">
+    Perdavė: ${escapeHtml(t.passedToManagerBy)} • ${escapeHtml(fmt(t.passedToManagerAt))}
+  </div>
+` : ''}
 ${progressLine}
 <div class="muted">${escapeHtml(seenInfo(t))}</div>
-        <div class="right" style="margin-top:6px">
-          <button class="btn" data-st="${t.id}|Nauja">Nauja</button>
-          <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
-          <button class="btn green" data-finish="${t.id}">Baigta (siųsti patvirtinimui)</button>
-        </div>
+<div class="right" style="margin-top:6px">
+  <button class="btn" data-st="${t.id}|Nauja">Nauja</button>
+  <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
+  <button class="btn amber" data-wait="${t.id}">Palikti laukiančią</button>
+  ${t.status === 'Perduota vadovui' || t.status === 'Laukianti' ? `<button class="btn primary" data-reopen="${t.id}">Aktyvuoti darbui</button>` : ''}
+  <button class="btn green" data-finish="${t.id}">Baigta (siųsti patvirtinimui)</button>
+</div>
+<div style="margin-top:10px">
+  <div class="muted">Vadovo komentaras / situacija</div>
+  <textarea class="adminWaitComment" data-id="${t.id}" placeholder="Pvz.: užsakytos dalys, laukiam tiekėjo atsakymo, planuojamas remontas kitą savaitę..."></textarea>
+</div>
       </div>
     `;
   }).join(''):'<div class="muted">Aktyvių užduočių nėra</div>';
@@ -1599,6 +1714,67 @@ ${progressLine}
       ${cards}
     </div>`;
 }
+
+function adminWaitingTasks(){
+  const waiting = (db.tasks || []).filter(t =>
+    t.status === 'Perduota vadovui' || t.status === 'Laukianti'
+  );
+
+  const cards = waiting.length ? waiting.map(t=>{
+    const log = t.progressLog || [];
+
+    const progressHtml = log.length ? `
+      <div class="muted" style="margin-top:8px;font-size:12px">
+        Komentarų istorija:
+        ${log.map(p => `
+          <div>• ${escapeHtml(p.date || '')} — ${escapeHtml(p.byName || '')}: ${escapeHtml(p.text || '')}</div>
+        `).join('')}
+      </div>
+    ` : '<div class="muted" style="margin-top:8px;font-size:12px">Komentarų nėra</div>';
+
+    return `
+      <div class="card danger">
+        <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
+        <b>${escapeHtml(t.title)}</b>
+
+        <div class="muted" style="margin-top:4px">
+          Paliko: ${escapeHtml(t.createdBy || '—')}
+          ${t.createdByRole ? `(${escapeHtml(t.createdByRole)})` : ''}
+        </div>
+
+        <div class="muted">
+          Statusas: <b>${escapeHtml(t.status || '—')}</b>
+        </div>
+
+        ${t.passedToManagerBy ? `
+          <div class="muted" style="font-size:12px">
+            Perdavė vadovui: ${escapeHtml(t.passedToManagerBy)} • ${escapeHtml(fmt(t.passedToManagerAt))}
+          </div>
+        ` : ''}
+
+        ${progressHtml}
+
+        <div style="margin-top:10px">
+          <div class="muted">Vadovo komentaras / situacija</div>
+          <textarea class="adminWaitComment" data-id="${t.id}" placeholder="Pvz.: užsakytos dalys, laukiam tiekėjo atsakymo..."></textarea>
+        </div>
+
+        <div class="right" style="margin-top:8px">
+          <button class="btn amber" data-wait="${t.id}">Išsaugoti kaip laukiančią</button>
+          <button class="btn primary" data-reopen="${t.id}">Aktyvuoti darbui</button>
+        </div>
+      </div>
+    `;
+  }).join('') : '<div class="card"><div class="muted">Laukiančių užduočių nėra</div></div>';
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Laukiančios užduotys</h3>
+    </div>
+    ${cards}
+  `;
+}
+
 function bindAdminTasks(){
   const eqSearch = document.getElementById('tEquipSearch');
   const eqSelect = document.getElementById('tEquip');
@@ -1629,6 +1805,70 @@ function bindAdminTasks(){
     applyEquipFilter();
   }
 
+  document.querySelectorAll('[data-wait]').forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute('data-wait');
+      const t = db.tasks.find(x=>x.id===id);
+      if(!t) return;
+
+      const card = b.closest('.card');
+      const ta = card ? card.querySelector('.adminWaitComment') : null;
+      const comment = ta ? safeTrim(ta.value) : '';
+
+      if(!t.progressLog) t.progressLog = [];
+
+      if(comment){
+        t.progressLog.push({
+          id: rid(),
+          date: fmt(Date.now()),
+          byId: currentUser()?.id || null,
+          byName: currentUser()?.display || currentUser()?.username || 'Vadovas',
+          text: '[Laukianti] ' + comment
+        });
+      }
+
+      updateTaskInSupabase(t.id, {
+        status: 'Laukianti',
+        progressLog: t.progressLog || []
+      }).then(updatedTask => {
+        if(!updatedTask){
+          alert('Nepavyko pakeisti į laukiančią');
+          return;
+        }
+
+        const idx = db.tasks.findIndex(x => x.id === t.id);
+        if(idx >= 0) db.tasks[idx] = updatedTask;
+
+        saveDB_local(db);
+        render();
+      });
+    };
+  });
+
+  document.querySelectorAll('[data-reopen]').forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute('data-reopen');
+      const t = db.tasks.find(x=>x.id===id);
+      if(!t) return;
+
+      updateTaskInSupabase(t.id, {
+        status: 'Nauja',
+        progressLog: t.progressLog || []
+      }).then(updatedTask => {
+        if(!updatedTask){
+          alert('Nepavyko aktyvuoti darbui');
+          return;
+        }
+
+        const idx = db.tasks.findIndex(x => x.id === t.id);
+        if(idx >= 0) db.tasks[idx] = updatedTask;
+
+        saveDB_local(db);
+        render();
+      });
+    };
+  });
+
   const create = document.getElementById('tCreate');
   if(create){
     create.onclick = ()=>{
@@ -1651,7 +1891,10 @@ function bindAdminTasks(){
         assignedTo,
         shared,
         source: 'admin',
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        createdBy: currentUser()?.display || currentUser()?.username || 'Admin',
+        createdById: currentUser()?.id || null,
+        createdByRole: currentUser()?.role || 'admin'
       };
 
       createTaskInSupabase(newTask).then(savedTask => {
@@ -1716,6 +1959,72 @@ function bindAdminTasks(){
 
       saveDB(db);
       render();
+    };
+  });
+}
+
+function bindAdminWaitingTasks(){
+  document.querySelectorAll('[data-wait]').forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute('data-wait');
+      const t = db.tasks.find(x=>x.id===id);
+      if(!t) return;
+
+      const card = b.closest('.card');
+      const ta = card ? card.querySelector('.adminWaitComment') : null;
+      const comment = ta ? safeTrim(ta.value) : '';
+
+      if(!t.progressLog) t.progressLog = [];
+
+      if(comment){
+        t.progressLog.push({
+          id: rid(),
+          date: fmt(Date.now()),
+          byId: currentUser()?.id || null,
+          byName: currentUser()?.display || currentUser()?.username || 'Vadovas',
+          text: '[Laukianti] ' + comment
+        });
+      }
+
+      updateTaskInSupabase(t.id, {
+        status: 'Laukianti',
+        progressLog: t.progressLog || []
+      }).then(updatedTask => {
+        if(!updatedTask){
+          alert('Nepavyko išsaugoti laukiančios būsenos');
+          return;
+        }
+
+        const idx = db.tasks.findIndex(x => x.id === t.id);
+        if(idx >= 0) db.tasks[idx] = updatedTask;
+
+        saveDB_local(db);
+        render();
+      });
+    };
+  });
+
+  document.querySelectorAll('[data-reopen]').forEach(b=>{
+    b.onclick = ()=>{
+      const id = b.getAttribute('data-reopen');
+      const t = db.tasks.find(x=>x.id===id);
+      if(!t) return;
+
+      updateTaskInSupabase(t.id, {
+        status: 'Nauja',
+        progressLog: t.progressLog || []
+      }).then(updatedTask => {
+        if(!updatedTask){
+          alert('Nepavyko aktyvuoti darbui');
+          return;
+        }
+
+        const idx = db.tasks.findIndex(x => x.id === t.id);
+        if(idx >= 0) db.tasks[idx] = updatedTask;
+
+        saveDB_local(db);
+        render();
+      });
     };
   });
 }
@@ -2119,9 +2428,16 @@ function operatorNotesRows(eid){
 /* OPERATOR LOGIKA */
 function renderOperator(root,user){
   ensureOperatorData();
+  ensureDailyChecks();
 
   let view = db.session.opView || 'home';
-  const eid  = db.session.opEquipId || (db.equipment[0] ? db.equipment[0].id : null);
+  const eid = user.equipId || (db.equipment[0] ? db.equipment[0].id : null);
+  const todayChecked = hasTodayCheck(eid);
+    if(!todayChecked && view !== 'check' && view !== 'password'){
+    view = 'check';
+    db.session.opView = 'check';
+    saveDB(db);
+  }
 
   // jeigu šiai technikai vyksta remontas – priverstinai rodome REMONTAS vaizdą
   const runningId = db.session.opRunningByEquip?.[eid] || null;
@@ -2159,6 +2475,18 @@ function renderOperator(root,user){
   /* HOME */
   if (view === 'home') {
     body.innerHTML = `
+    ${todayChecked ? `
+  <div class="card" style="background:#f0fdf4;border-color:#bbf7d0">
+    <b>✅ Šiandienos patikra atlikta</b>
+    <div class="muted" style="margin-top:6px">
+      Galite naudotis operatoriaus funkcijomis.
+    </div>
+  </div>
+` : `
+  <div class="card danger blink">
+    <b>❗ Šiandienos patikra neatlikta</b>
+  </div>
+`}
       <div class="card">
         <div class="headerline">
           <h3 style="margin:0">${escapeHtml(labelEquip(eid))}</h3>
@@ -2166,13 +2494,13 @@ function renderOperator(root,user){
         </div>
 
         <div class="row row-2" style="margin-top:10px">
-          <button class="btn green" id="opCheck">MAŠINOS PATIKRA</button>
-          <button class="btn primary" id="opRep">REMONTAS</button>
-        </div>
+  <button class="btn green" id="opCheck">MAŠINOS PATIKRA</button>
+  <button class="btn primary" id="opRep" ${todayChecked ? '' : 'disabled'}>REMONTAS</button>
+</div>
 
-        <div style="margin-top:8px">
-          <button class="btn" id="opHist">ISTORIJA / PASTABOS</button>
-        </div>
+<div style="margin-top:8px">
+  <button class="btn" id="opHist" ${todayChecked ? '' : 'disabled'}>ISTORIJA / PASTABOS</button>
+</div>
       </div>
 
       <div class="card">
@@ -2181,9 +2509,6 @@ function renderOperator(root,user){
       </div>
     `;
 
-    if (db.session.opRunningByEquip?.[eid]) {
-      ensureOpReminder(eid);
-    }
 
     document.getElementById('opCheck').onclick = () => {
       db.session.opView = 'check';
@@ -2209,12 +2534,26 @@ function renderOperator(root,user){
     const fields = getChecklistForEquip(eid);
 
     body.innerHTML = `
-      <div class="card">
-        <button class="btn" id="opBack1">← Atgal</button>
-        <h3>Kasdienė patikra</h3>
-        <div class="muted" style="margin-top:-6px;margin-bottom:8px">
-          NOT OK – pridėkite komentarą, jis atsiras „Istorija / pastabos“ ir matysis vadovui.
-        </div>
+  <div class="card">
+    <button class="btn" id="opBack1" ${todayChecked ? '' : 'disabled'}>← Atgal</button>
+    <h3>Kasdienė patikra</h3>
+
+${todayChecked ? `
+  <div class="card" style="background:#f0fdf4;border-color:#bbf7d0;margin-top:8px">
+    <b>✅ Šiandienos patikra jau atlikta</b>
+  </div>
+` : `
+  <div class="card danger blink" style="margin-top:8px">
+    <b>❗ Privaloma atlikti šiandienos patikrą</b>
+    <div class="muted" style="margin-top:6px">
+      Kol patikra neatlikta, kiti operatoriaus langai yra užrakinti.
+    </div>
+  </div>
+`}
+
+<div class="muted" style="margin-top:-6px;margin-bottom:8px">
+  NOT OK – pridėkite komentarą, jis atsiras „Istorija / pastabos“ ir matysis vadovui.
+</div>
         <div id="chkWrap"></div>
         <div class="right" style="margin-top:10px">
           <button class="btn primary" id="opSaveCheck">Išsaugoti patikrą</button>
@@ -2343,6 +2682,20 @@ document.getElementById('opSaveCheck').onclick = () => {
       added++;
     }
   });
+  ensureDailyChecks();
+
+  db.dailyChecks = db.dailyChecks.filter(x =>
+    !(x.equipId === eid && x.date === today())
+  );
+
+  db.dailyChecks.push({
+    id: rid(),
+    equipId: eid,
+    userId: user.id,
+    userName: user.display || user.username,
+    date: today(),
+    doneAt: Date.now()
+  });
 
   alert('✅ Patikra išsaugota.' + (added ? (' NOT OK įrašų: ' + added) : ''));
   db.session.opView = 'home';
@@ -2354,39 +2707,50 @@ document.getElementById('opSaveCheck').onclick = () => {
     return;
   }
 
-  /* REMONTAS (operatorius) */
-  if (view === 'repair') {
-    const runningId = db.session.opRunningByEquip[eid] || null;
-    const runningTask = runningId ? (db.tasks||[]).find(t=>t.id===runningId) : null;
+ /* REMONTAS (operatorius) */
+if (view === 'repair') {
+  const runningId = db.session.opRunningByEquip[eid] || null;
+  const runningTask = runningId ? (db.tasks||[]).find(t=>t.id===runningId) : null;
 
-    body.innerHTML = `
-      <div class="card">
-        <button class="btn" id="opBack2" ${runningTask ? 'disabled' : ''}>← Atgal</button>
+  const repairInfo = runningTask ? `
+    <div class="card danger blink" style="margin-bottom:10px">
+      <div class="alarm">🔧 Remontas pradėtas</div>
+      <div style="margin-top:8px"><b>Technika:</b> ${escapeHtml(labelEquip(eid))}</div>
+      <div><b>Gedimas:</b> ${escapeHtml(runningTask.title || '—')}</div>
+      <div><b>Pradžia:</b> ${escapeHtml(runningTask.startHM || '—')}</div>
+      <div><b>Statusas:</b> Vykdoma</div>
+    </div>
+  ` : '';
 
-        <h3>Remonto registracija</h3>
+  body.innerHTML = `
+    ${repairInfo}
 
-        <div class="muted">Trumpai aprašykite gedimą…</div>
-        <textarea id="repTxt" placeholder="Pvz.: sunkiai suka, tepalas bėga…">
-${escapeHtml(runningTask ? (runningTask.title || '') : '')}</textarea>
+    <div class="card">
+      <button class="btn" id="opBack2" ${runningTask ? 'disabled' : ''}>← Atgal</button>
 
-        <div class="row row-2" style="margin-top:8px">
-          <div>
-            <div class="muted">Pradžia (HH:MM)</div>
-            <input id="repStart" placeholder="${escapeHtml(nowHM())}">
-          </div>
-          <div class="right" style="align-items:flex-end">
-            <button class="btn" id="repStartBtn" ${runningTask ? 'disabled' : ''}>Pradėti</button>
-            <button class="btn primary" id="repFinishBtn" ${runningTask ? '' : 'disabled'}>Remonto pabaiga</button>
-          </div>
+      <h3>Remonto registracija</h3>
+
+      <div class="muted">Trumpai aprašykite gedimą…</div>
+      <textarea id="repTxt" placeholder="Pvz.: sunkiai suka, tepalas bėga…">${escapeHtml(runningTask ? (runningTask.title || '') : '')}</textarea>
+
+      <div class="row row-2" style="margin-top:8px">
+        <div>
+          <div class="muted">Pradžia (HH:MM)</div>
+          <input id="repStart" value="${escapeHtml(runningTask ? (runningTask.startHM || '') : '')}" placeholder="${escapeHtml(nowHM())}">
         </div>
-
-        <div class="muted" style="margin-top:8px">
-          ${runningTask
-            ? 'Vykdomas remontas matomas mechanikams ir vadovui.'
-            : 'Po „Pradėti“ remontas bus matomas mechanikams ir vadovui (raudonas, viršuje).'}
+        <div class="right" style="align-items:flex-end">
+          <button class="btn" id="repStartBtn" ${runningTask ? 'disabled' : ''}>Pradėti</button>
+          <button class="btn primary" id="repFinishBtn" ${runningTask ? '' : 'disabled'}>Remonto pabaiga</button>
         </div>
       </div>
-    `;
+
+      <div class="muted" style="margin-top:8px">
+        ${runningTask
+          ? 'Vykdomas remontas matomas mechanikams ir vadovui.'
+          : 'Po „Pradėti“ remontas bus matomas mechanikams ir vadovui (raudonas, viršuje).'}
+      </div>
+    </div>
+  `;
 
     document.getElementById('opBack2').onclick = () => {
       db.session.opView = 'home';
@@ -2397,68 +2761,93 @@ ${escapeHtml(runningTask ? (runningTask.title || '') : '')}</textarea>
     const startBtn = document.getElementById('repStartBtn');
     const finBtn   = document.getElementById('repFinishBtn');
 
-    if (startBtn) {
-      startBtn.onclick = () => {
-        const title    = safeTrim(document.getElementById('repTxt')?.value) || 'Operatoriaus remontas';
-        const startVal = safeTrim(document.getElementById('repStart')?.value) || nowHM();
+if (startBtn) {
+  startBtn.onclick = async () => {
+    const title    = safeTrim(document.getElementById('repTxt')?.value) || 'Operatoriaus remontas';
+    const startVal = safeTrim(document.getElementById('repStart')?.value) || nowHM();
 
-        const task = {
-          id: rid(),
-          equipId: eid,
-          title,
-          status: 'Vykdoma',
-          source: 'op-repair',
-          shared: true,
-          assignedTo: [],
-          startedAt: Date.now(),
-          startHM: startVal
-        };
+const task = {
+  id: rid(),
+  equipId: eid,
+  title,
+  status: 'Vykdoma',
+  source: 'op-repair',
+  shared: true,
+  assignedTo: [],
+  startedAt: Date.now(),
+  startHM: startVal,
+  createdAt: Date.now(),
+  createdBy: user.display || user.username,
+  createdById: user.id,
+  createdByRole: user.role
+};
 
-        db.tasks.unshift(task);
-        db.session.opRunningByEquip[eid] = task.id;
+    const savedTask = await createTaskInSupabase(task);
 
-        saveDB(db);
-        ensureOpReminder(eid);
-
-        alert('Remontas pradėtas.');
-        render();
-      };
+    if(!savedTask){
+      alert('Nepavyko pradėti remonto.');
+      return;
     }
 
-    if (finBtn) {
-      finBtn.onclick = () => {
-        const taskId = db.session.opRunningByEquip[eid];
-        if (!taskId) {
-          alert('Remontas nepradėtas.');
-          return;
-        }
-        const task = (db.tasks||[]).find(t=>t.id===taskId);
-        if (task) task.status = 'Laukia patvirtinimo';
+    savedTask.startHM = startVal;
+    savedTask.startedAt = Date.now();
 
-        db.approvals.unshift({
-          id: rid(),
-          taskId: taskId,
-          equipId: eid,
-          issue: task ? task.title : 'Remonto pabaiga',
-          date: today(),
-          start: (document.getElementById('repStart').value || nowHM()),
-          durationMin: 30,
-          doneBy: (user.display || user.username),
-          role: 'operatorius',
-          comment: ''
-        });
+    db.tasks.unshift(savedTask);
+    db.session.opRunningByEquip[eid] = savedTask.id;
 
-        delete db.session.opRunningByEquip[eid];
-        if (opReminderTimer) {
-          clearInterval(opReminderTimer);
-          opReminderTimer = null;
-        }
+    saveDB_local(db);
+    alert('Remontas pradėtas.');
+    render();
+  };
+}
 
-        alert('Išsiųsta patvirtinimui.');
-        saveDB(db);
-        render();
-      };
+if (finBtn) {
+  finBtn.onclick = async () => {
+    const taskId = db.session.opRunningByEquip[eid];
+    if (!taskId) {
+      alert('Remontas nepradėtas.');
+      return;
     }
+
+    const task = (db.tasks || []).find(t => t.id === taskId);
+    if (!task) {
+      alert('Užduotis nerasta.');
+      return;
+    }
+
+    const updatedTask = await updateTaskInSupabase(task.id, {
+      status: 'Laukia patvirtinimo',
+      progressLog: task.progressLog || []
+    });
+
+    if(!updatedTask){
+      alert('Nepavyko užbaigti remonto.');
+      return;
+    }
+
+    const idx = db.tasks.findIndex(x => x.id === task.id);
+    if(idx >= 0) db.tasks[idx] = updatedTask;
+    db.approvals.unshift({
+  id: rid(),
+  taskId: updatedTask.id,
+  equipId: updatedTask.equipId,
+  issue: updatedTask.title,
+  date: today(),
+  start: document.getElementById('repStart').value || nowHM(),
+  durationMin: 30,
+  doneBy: (user.display || user.username),
+  doneById: user.id,
+  role: 'operatorius',
+  comment: ''
+});
+
+    delete db.session.opRunningByEquip[eid];
+
+    saveDB_local(db);
+    alert('Remontas užbaigtas ir išsiųstas patvirtinimui.');
+    render();
+  };
+}
 
     return;
   }
@@ -2567,14 +2956,9 @@ function renderMechanic(root,user){
 /* MECH – TASKS */
 function mechanicTasks(user){
   const myId = user.id;
-
-  // VISŲ matomų užduočių sąrašas
   const allVisible = mechanicVisibleTasks(myId);
-
-  // 1) Rūšiuojam: naujausios viršuje
   const active = sortNewestFirst(allVisible);
-
-  // 2) Nematytos (SEEN dar nespaustos)
+  const waiting = sortNewestFirst(mechanicWaitingTasks(myId));
   const unseen = active.filter(t => !isSeen(t, myId));
 
   const alarmHtml = unseen.length ? `
@@ -2590,8 +2974,6 @@ function mechanicTasks(user){
 
   const cards = active.length ? active.map(t=>{
     const isUnseen = !isSeen(t, myId);
-
-    // BŪTINA: kortelės klasė – raudona + mirksėjimas jei nematyta
     const cardCls = 'card danger' + (isUnseen ? ' blink' : '');
 
     const helpersOptions = mechUsers
@@ -2604,7 +2986,7 @@ function mechanicTasks(user){
       <div class="muted" style="margin-top:10px;font-size:12px">
         Ankstesni komentarai:
         ${progress.map(p => `
-          <div>• ${escapeHtml(p.date)} — ${escapeHtml(p.byName)}: ${escapeHtml(p.text)}</div>
+          <div>• ${escapeHtml(p.date || '')} — ${escapeHtml(p.byName || '')}: ${escapeHtml(p.text || '')}</div>
         `).join('')}
       </div>
     ` : '';
@@ -2614,12 +2996,16 @@ function mechanicTasks(user){
         <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
         <b>${escapeHtml(t.title)}</b>
 
-        ${t.initialComment
-          ? `<div class="muted" style="margin-top:4px;font-style:italic">
-               Komentaras: ${escapeHtml(t.initialComment)}
-             </div>`
-          : ''
-        }
+        <div class="muted">
+          Paliko: ${escapeHtml(t.createdBy || '—')}
+          ${t.createdByRole ? `(${escapeHtml(t.createdByRole)})` : ''}
+        </div>
+
+        ${t.initialComment ? `
+          <div class="muted" style="margin-top:4px;font-style:italic">
+            Komentaras: ${escapeHtml(t.initialComment)}
+          </div>
+        ` : ''}
 
         <div class="muted" style="margin-top:4px">
           Statusas: ${escapeHtml(t.status || '—')}
@@ -2629,14 +3015,14 @@ function mechanicTasks(user){
         <div class="muted">
           Priskirta: ${t.shared
             ? 'Bendra visiems'
-            : ((t.assignedTo||[]).map(userDisplay).join(', ')||'—')}
+            : ((t.assignedTo||[]).map(userDisplay).join(', ') || '—')}
         </div>
+
         <div class="muted" style="font-size:12px">
-        ${escapeHtml(seenInfo(t))}
-        
-      </div>
-      
-      ${progressHtml}
+          ${escapeHtml(seenInfo(t))}
+        </div>
+
+        ${progressHtml}
 
         <div style="margin-top:10px">
           <div class="muted">Komentaras (nebūtina)</div>
@@ -2656,17 +3042,58 @@ function mechanicTasks(user){
         <div class="right" style="margin-top:6px">
           <button class="btn" data-seen="${t.id}">SEEN</button>
           <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
+          <button class="btn amber" data-pass-manager="${t.id}">Perduoti vadovui</button>
           <button class="btn green" data-done="${t.id}">Baigta (siųsti patvirtinimui)</button>
         </div>
       </div>
     `;
   }).join('') : '<div class="card muted">Aktyvių užduočių nėra</div>';
 
+  const waitingCards = waiting.length ? waiting.map(t=>{
+    const progress = t.progressLog || [];
+    const progressHtml = progress.length ? `
+      <div class="muted" style="margin-top:10px;font-size:12px">
+        Komentarų istorija:
+        ${progress.map(p => `
+          <div>• ${escapeHtml(p.date || '')} — ${escapeHtml(p.byName || '')}: ${escapeHtml(p.text || '')}</div>
+        `).join('')}
+      </div>
+    ` : '<div class="muted" style="margin-top:10px;font-size:12px">Komentarų nėra</div>';
+
+    return `
+      <div class="card">
+        <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
+        <b>${escapeHtml(t.title)}</b>
+
+        <div class="muted">
+          Paliko: ${escapeHtml(t.createdBy || '—')}
+          ${t.createdByRole ? `(${escapeHtml(t.createdByRole)})` : ''}
+        </div>
+
+        <div class="muted">Statusas: ${escapeHtml(t.status || '—')}</div>
+
+        ${t.passedToManagerBy ? `
+          <div class="muted" style="font-size:12px">
+            Perdavė: ${escapeHtml(t.passedToManagerBy)} • ${escapeHtml(fmt(t.passedToManagerAt))}
+          </div>
+        ` : ''}
+
+        ${progressHtml}
+      </div>
+    `;
+  }).join('') : '<div class="muted">Laukiančių užduočių nėra</div>';
+
   return `
     ${alarmHtml}
+
     <div class="card">
-      <h3 style="margin-top:0">Užduotys</h3>
+      <h3 style="margin-top:0">Aktyvios užduotys</h3>
       ${cards}
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Laukiančios / perduotos vadovui</h3>
+      ${waitingCards}
     </div>
   `;
 }
@@ -2698,6 +3125,72 @@ function bindMechanicTasks(user){
     };
   });
 
+document.querySelectorAll('[data-reopen]').forEach(b=>{
+  b.onclick = ()=>{
+    const id = b.getAttribute('data-reopen');
+    const t = db.tasks.find(x=>x.id===id);
+    if(!t) return;
+
+    updateTaskInSupabase(t.id, {
+      status: 'Nauja',
+      progressLog: t.progressLog || []
+    }).then(updatedTask => {
+      if(!updatedTask){
+        alert('Nepavyko aktyvuoti užduoties');
+        return;
+      }
+
+      const idx = db.tasks.findIndex(x => x.id === t.id);
+      if(idx >= 0) db.tasks[idx] = updatedTask;
+
+      saveDB_local(db);
+      render();
+    });
+  };
+});
+
+document.querySelectorAll('[data-pass-manager]').forEach(b=>{
+  b.onclick = ()=>{
+    const id = b.getAttribute('data-pass-manager');
+    const t = db.tasks.find(x=>x.id===id);
+    if(!t) return;
+
+    const card = b.closest('.card');
+    const ta = card ? card.querySelector('.mechComment') : null;
+    const comment = ta ? safeTrim(ta.value) : '';
+
+    if(comment){
+      if(!t.progressLog) t.progressLog = [];
+      t.progressLog.push({
+        id: rid(),
+        date: fmt(Date.now()),
+        byId: user.id,
+        byName: (user.display || user.username),
+        text: '[Perduota vadovui] ' + comment
+      });
+    }
+
+    updateTaskInSupabase(t.id, {
+      status: 'Perduota vadovui',
+      progressLog: t.progressLog || [],
+      passedToManagerAt: new Date().toISOString(),
+      passedToManagerBy: user.display || user.username,
+      passedToManagerById: user.id
+    }).then(updatedTask => {
+      if(!updatedTask){
+        alert('Nepavyko perduoti vadovui');
+        return;
+      }
+
+      const idx = db.tasks.findIndex(x => x.id === t.id);
+      if(idx >= 0) db.tasks[idx] = updatedTask;
+
+      saveDB_local(db);
+      render();
+    });
+  };
+});
+
   document.querySelectorAll('[data-st]').forEach(b=>{
     b.onclick = ()=>{
       const [id, st] = b.getAttribute('data-st').split('|');
@@ -2721,7 +3214,7 @@ function bindMechanicTasks(user){
           ta.value = '';
         }
       }
-
+      
       updateTaskInSupabase(t.id, {
         status: st,
         progressLog: t.progressLog || []
@@ -2863,19 +3356,19 @@ function bindMechanicNotes(user){
       // mechaniko komentaras, kai verčia pastabą į užduotį
       const extraComment = prompt('Komentaras (nebūtina, pvz. ką tiksliai atlikti):','') || '';
 
-      const newTask = {
-        id: rid(),
-        equipId: note.equipId,
-        title,
-        status: 'Nauja',
-        shared: true,
-        assignedTo: [],
-        source: 'note',
-        fromNoteId: note.id,
-        reportedBy: user.display || user.username,
-        reportedAt: Date.now(),
-        initialComment: extraComment
-      };
+const newTask = {
+  id: rid(),
+  equipId: note.equipId,
+  title,
+  status: 'Nauja',
+  shared: true,
+  assignedTo: [],
+  source: 'note',
+  fromNoteId: note.id,
+  reportedBy: user.display || user.username,
+  reportedAt: Date.now(),
+  initialComment: extraComment
+};
 
       db.tasks.unshift(newTask);
 
