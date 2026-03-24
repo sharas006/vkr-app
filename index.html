@@ -1645,7 +1645,10 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
   if(view==='equip') bindAdminEquip();
   if(view==='tasks') bindAdminTasks();
   if(view==='waiting') bindAdminWaitingTasks();
-  if(view==='approvals') bindAdminApprovals();
+  if(view==='approvals'){
+  console.log('KVIEČIU bindAdminApprovals');
+  bindAdminApprovals();
+}
   if(view==='notes') bindAdminNotes(user);
   if(view==='password') bindChangePassword(user);
   if(view==='lube') bindAdminLube();
@@ -2772,8 +2775,8 @@ function adminApprovals(){
       <td>${escapeHtml(a.comment||'—')}</td>
       <td>${(a.helpers||[]).length ? escapeHtml(a.helpers.map(userDisplay).join(', ')) : '—'}</td>
 <td class="right">
-  <button class="btn green" onclick="alert('PATVIRTINTI PASPAUSTAS: ${a.id}')" data-ok="${a.id}">Patvirtinti</button>
-  <button class="btn red" onclick="alert('GRAZINTI PASPAUSTAS: ${a.id}')" data-no="${a.id}">Grąžinti</button>
+<button class="btn green" onclick="handleApprovalOk('${a.id}')">Patvirtinti</button>
+<button class="btn red" onclick="handleApprovalReturn('${a.id}')">Grąžinti</button>
 </td>
     </tr>
   `).join('') || '<tr><td colspan="8" class="muted">Nėra laukiančių</td></tr>';
@@ -2788,123 +2791,126 @@ function adminApprovals(){
     </div>`;
 }
 function bindAdminApprovals(){
-  document.querySelectorAll('[data-ok]').forEach(b=>{
-    b.onclick = async ()=>{
-      const id = b.getAttribute('data-ok');
-      const idx = db.approvals.findIndex(x=>x.id===id);
-      if(idx < 0) return;
 
-      const a = db.approvals[idx];
+}
 
-      let progressLog = [];
-      if(a.taskId){
-        const tTask = db.tasks.find(x=>x.id===a.taskId);
-        if(tTask && tTask.progressLog){
-          progressLog = tTask.progressLog.slice();
-        }
-      }
+async function handleApprovalOk(id){
+  const idx = db.approvals.findIndex(x => String(x.id) === String(id));
+  if(idx < 0){
+    alert('Patvirtinimas nerastas');
+    return;
+  }
 
-const savedCompleted = await createCompletedInSupabase({
-  equipId: a.equipId,
-  title: a.issue,
-  date: a.date,
-  durationMin: a.durationMin || 0,
-  doneBy: a.doneBy,
-  doneById: a.doneById,
-  role: (a.role === 'mechanikas' ? 'mechanic' : 'operator'),
-  comment: a.comment || '',
-  helpers: a.helpers || [],
-  progressLog: progressLog
-});
+  const a = db.approvals[idx];
 
-      if(!savedCompleted){
-        alert('Nepavyko perkelti į istoriją.');
-        return;
-      }
+  let progressLog = [];
+  if(a.taskId){
+    const tTask = db.tasks.find(x => String(x.id) === String(a.taskId));
+    if(tTask && tTask.progressLog){
+      progressLog = tTask.progressLog.slice();
+    }
+  }
 
-      const deleted = await deleteApprovalFromSupabase(a.id);
-      if(!deleted){
-        alert('Nepavyko pašalinti patvirtinimo.');
-        return;
-      }
-
-      if(a.taskId){
-        const t = db.tasks.find(x=>x.id===a.taskId);
-        if(t){
-          const updatedTask = await updateTaskInSupabase(t.id, {
-            status: 'Užbaigta',
-            progressLog: t.progressLog || []
-          });
-          if(updatedTask){
-            const tIdx = db.tasks.findIndex(x=>x.id===t.id);
-            if(tIdx >= 0) db.tasks[tIdx] = updatedTask;
-          }
-        }
-      }
-
-      db.approvals.splice(idx,1);
-      db.completed.unshift(savedCompleted);
-      render();
-    };
+  const savedCompleted = await createCompletedInSupabase({
+    equipId: a.equipId,
+    title: a.issue,
+    date: a.date,
+    durationMin: a.durationMin || 0,
+    doneBy: a.doneBy,
+    doneById: a.doneById,
+    role: (a.role === 'mechanikas' ? 'mechanic' : 'operator'),
+    comment: a.comment || '',
+    helpers: a.helpers || [],
+    progressLog: progressLog
   });
 
-document.querySelectorAll('[data-no]').forEach(b=>{
-  b.onclick = async ()=>{
-    const id = b.getAttribute('data-no');
-    const idx = db.approvals.findIndex(x=>x.id===id);
-    if(idx < 0) return;
+  if(!savedCompleted){
+    alert('Nepavyko perkelti į istoriją.');
+    return;
+  }
 
-    const a = db.approvals[idx];
+  const deleted = await deleteApprovalFromSupabase(a.id);
+  if(!deleted){
+    alert('Nepavyko pašalinti patvirtinimo.');
+    return;
+  }
 
-    const deleted = await deleteApprovalFromSupabase(a.id);
-    if(!deleted){
-      alert('Nepavyko pašalinti patvirtinimo.');
+  if(a.taskId){
+    const t = db.tasks.find(x => String(x.id) === String(a.taskId));
+    if(t){
+      const updatedTask = await updateTaskInSupabase(t.id, {
+        status: 'Užbaigta',
+        progressLog: t.progressLog || []
+      });
+
+      if(updatedTask){
+        const tIdx = db.tasks.findIndex(x => String(x.id) === String(t.id));
+        if(tIdx >= 0) db.tasks[tIdx] = updatedTask;
+      }
+    }
+  }
+
+  db.approvals.splice(idx, 1);
+  db.completed.unshift(savedCompleted);
+  render();
+}
+
+async function handleApprovalReturn(id){
+  const idx = db.approvals.findIndex(x => String(x.id) === String(id));
+  if(idx < 0){
+    alert('Patvirtinimas nerastas');
+    return;
+  }
+
+  const a = db.approvals[idx];
+
+  const deleted = await deleteApprovalFromSupabase(a.id);
+  if(!deleted){
+    alert('Nepavyko pašalinti patvirtinimo.');
+    return;
+  }
+
+  if(a.taskId){
+    const oldTask = db.tasks.find(x => String(x.id) === String(a.taskId));
+
+    if(oldTask){
+      const updatedTask = await updateTaskInSupabase(oldTask.id, {
+        status: 'Nauja',
+        progressLog: oldTask.progressLog || []
+      });
+
+      if(!updatedTask){
+        alert('Nepavyko grąžinti senos užduoties.');
+        return;
+      }
+
+      const tIdx = db.tasks.findIndex(x => String(x.id) === String(oldTask.id));
+      if(tIdx >= 0) db.tasks[tIdx] = updatedTask;
+    }
+  } else {
+    const savedTask = await createTaskInSupabase({
+      equipId: a.equipId,
+      title: 'Grąžinta: ' + a.issue,
+      status: 'Nauja',
+      assignedTo: [],
+      shared: true,
+      source: 'admin',
+      createdAt: Date.now(),
+      createdBy: currentUser()?.display || currentUser()?.username || 'Admin',
+      createdById: currentUser()?.id || null,
+      createdByRole: currentUser()?.role || 'admin'
+    });
+
+    if(!savedTask){
+      alert('Nepavyko grąžinti užduoties.');
       return;
     }
 
-    if(a.taskId){
-      const oldTask = db.tasks.find(x=>x.id===a.taskId);
+    db.tasks.unshift(savedTask);
+  }
 
-      if(oldTask){
-        const updatedTask = await updateTaskInSupabase(oldTask.id, {
-          status: 'Nauja',
-          progressLog: oldTask.progressLog || []
-        });
-
-        if(!updatedTask){
-          alert('Nepavyko grąžinti senos užduoties.');
-          return;
-        }
-
-        const tIdx = db.tasks.findIndex(x=>x.id===oldTask.id);
-        if(tIdx >= 0) db.tasks[tIdx] = updatedTask;
-      }
-    } else {
-      const savedTask = await createTaskInSupabase({
-        equipId: a.equipId,
-        title: 'Grąžinta: ' + a.issue,
-        status: 'Nauja',
-        assignedTo: [],
-        shared: true,
-        source: 'admin',
-        createdAt: Date.now(),
-        createdBy: currentUser()?.display || currentUser()?.username || 'Admin',
-        createdById: currentUser()?.id || null,
-        createdByRole: currentUser()?.role || 'admin'
-      });
-
-      if(!savedTask){
-        alert('Nepavyko grąžinti užduoties.');
-        return;
-      }
-
-      db.tasks.unshift(savedTask);
-    }
-
-    db.approvals.splice(idx,1);
-    render();
-  };
-});
+  db.approvals.splice(idx, 1);
+  render();
 }
 
 function adminNotes(){
