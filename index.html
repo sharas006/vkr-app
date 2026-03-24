@@ -253,6 +253,153 @@ return (data || []).map(t => ({
   createdByRole: t.created_by_role || ''
 }));
 }
+async function loadTaskFilesFromSupabase(){
+  const { data, error } = await sb
+    .from('task_files')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Klaida gaunant task_files:', error);
+    return [];
+  }
+
+  return (data || []).map(f => ({
+    id: f.id,
+    taskId: f.task_id,
+    fileName: f.file_name || '',
+    filePath: f.file_path || '',
+    contentType: f.content_type || '',
+    uploadedById: f.uploaded_by_id || null,
+    uploadedByName: f.uploaded_by_name || '',
+    createdAt: f.created_at || null
+  }));
+}
+
+async function createTaskFileInSupabase(item){
+  const payload = {
+    task_id: item.taskId,
+    file_name: item.fileName,
+    file_path: item.filePath,
+    content_type: item.contentType || null,
+    uploaded_by_id: item.uploadedById || null,
+    uploaded_by_name: item.uploadedByName || ''
+  };
+
+  const { data, error } = await sb
+    .from('task_files')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant task_files įrašą:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    taskId: data.task_id,
+    fileName: data.file_name || '',
+    filePath: data.file_path || '',
+    contentType: data.content_type || '',
+    uploadedById: data.uploaded_by_id || null,
+    uploadedByName: data.uploaded_by_name || '',
+    createdAt: data.created_at || null
+  };
+}
+
+async function uploadTaskFileToSupabase(file, taskId, user){
+  if(!file) return null;
+
+  const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${taskId}/${Date.now()}_${cleanName}`;
+
+  const { error: uploadError } = await sb
+    .storage
+    .from('task-files')
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if(uploadError){
+    console.error('Klaida keliant failą į Storage:', uploadError);
+    alert('Nepavyko įkelti failo: ' + uploadError.message);
+    return null;
+  }
+
+  const saved = await createTaskFileInSupabase({
+    taskId,
+    fileName: file.name,
+    filePath: path,
+    contentType: file.type || '',
+    uploadedById: user?.id || null,
+    uploadedByName: user?.display || user?.username || ''
+  });
+
+  return saved;
+}
+
+async function getTaskFileUrl(filePath){
+  const { data, error } = await sb
+    .storage
+    .from('task-files')
+    .createSignedUrl(filePath, 60 * 60);
+
+  if(error){
+    console.error('Klaida gaunant failo URL:', error);
+    return null;
+  }
+
+  return data?.signedUrl || null;
+}
+
+function bindTaskFileUploads(user){
+  document.querySelectorAll('[data-upload-task-file]').forEach(btn => {
+    btn.onclick = async () => {
+      const taskId = btn.getAttribute('data-upload-task-file');
+      const input = document.querySelector(`input[data-task-file="${taskId}"]`);
+      const file = input?.files?.[0];
+
+      if(!file){
+        alert('Pasirink failą.');
+        return;
+      }
+
+      const saved = await uploadTaskFileToSupabase(file, taskId, user);
+      if(!saved){
+        alert('Nepavyko įkelti failo.');
+        return;
+      }
+
+      if(!db.taskFiles) db.taskFiles = [];
+      db.taskFiles.unshift(saved);
+
+      alert('Failas įkeltas.');
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-open-file]').forEach(link => {
+    link.onclick = async (e) => {
+      e.preventDefault();
+
+      const id = link.getAttribute('data-open-file');
+      const file = (db.taskFiles || []).find(f => String(f.id) === String(id));
+      if(!file) return;
+
+      const url = await getTaskFileUrl(file.filePath);
+      if(!url){
+        alert('Nepavyko atidaryti failo.');
+        return;
+      }
+
+      window.open(url, '_blank');
+    };
+  });
+}
+
 async function loadNotesFromSupabase(){
   const { data, error } = await sb
     .from('notes')
@@ -349,6 +496,22 @@ async function updateNoteInSupabase(noteId, updates){
     checklistPoint: data.checklist_point || ''
   };
 }
+
+function taskFilesHtml(taskId){
+  const files = (db.taskFiles || []).filter(f => String(f.taskId) === String(taskId));
+
+  if(!files.length){
+    return '<div class="muted" style="font-size:12px">Failų nėra</div>';
+  }
+
+  return files.map(f => `
+    <div class="muted" style="font-size:12px;margin-top:4px">
+      📎 <a href="#" data-open-file="${f.id}">${escapeHtml(f.fileName)}</a>
+      ${f.uploadedByName ? `• įkėlė ${escapeHtml(f.uploadedByName)}` : ''}
+    </div>
+  `).join('');
+}
+
 async function loadUsersFromSupabase(){
   const { data, error } = await sb
     .from('users')
@@ -977,6 +1140,9 @@ async function boot(){
   const tasksFromCloud = await loadTasksFromSupabase();
   if(tasksFromCloud.length) db.tasks = tasksFromCloud;
 
+  const taskFilesFromCloud = await loadTaskFilesFromSupabase();
+  db.taskFiles = taskFilesFromCloud;
+
   const equipmentFromCloud = await loadEquipmentFromSupabase();
   if(equipmentFromCloud.length) db.equipment = equipmentFromCloud;
 
@@ -1116,21 +1282,6 @@ function groupHasAttention(group){
   return (group.items || []).some(taskIsAttention);
 
 }
-/* db */
-async function apiGetDB(){
-  const r = await fetch(API_URL, { method:'GET', cache:'no-store' });
-  const txt = await r.text();
-  return JSON.parse(txt || '{}');
-}
-
-async function apiSaveDB(dbObj){
-  const r = await fetch(API_URL, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify(dbObj)
-  });
-  return r.json().catch(()=>({ok:true}));
-}
 
 // ===== local + online wrapper =====
 function loadDB(){
@@ -1172,6 +1323,7 @@ const db = {
     { id:'gr-sokol-bulk',   label:'Sokol – birių greiferis', parentEquipId:'terberg-106' }
   ],
   tasks: [],
+  taskFiles: [],
   approvals: [],
   notes: [],
   completed: [],
@@ -1499,6 +1651,8 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
   if(view==='lube') bindAdminLube();
   if(view==='grabs') bindAdminGrabs();
   if(view==='history') bindAdminHistory();
+
+  if(view==='tasks') bindTaskFileUploads(user);
 }
 
 function adminDashboard(){
@@ -2161,7 +2315,17 @@ function adminTasks(){
           <div class="muted">Vadovo komentaras / situacija</div>
           <textarea class="adminWaitComment" data-id="${t.id}" placeholder="Pvz.: užsakytos dalys, laukiam tiekėjo atsakymo..."></textarea>
         </div>
-      </div>
+        <div style="margin-top:10px">
+  <div class="muted">Pridėti foto / dokumentą</div>
+  <input type="file" class="taskFileInput" data-task-file="${t.id}">
+  <div class="right" style="margin-top:6px">
+    <button class="btn" data-upload-task-file="${t.id}">Įkelti failą</button>
+  </div>
+  <div style="margin-top:6px">
+    ${taskFilesHtml(t.id)}
+  </div>
+</div>
+</div>
     `;
   }).join('');
 
@@ -3597,10 +3761,23 @@ function renderMechanic(root,user){
   });
 
   const mid=document.getElementById('mMid');
-  if(view==='tasks'){ mid.innerHTML=mechanicTasks(user); bindMechanicTasks(user); }
-  if(view==='lube'){ mid.innerHTML=mechanicLube(user); bindMechanicLube(user); }
-  if(view==='notes'){ mid.innerHTML=mechanicNotes(user); bindMechanicNotes(user); }
-  if(view==='password'){ mid.innerHTML=changePasswordUI(user); bindChangePassword(user); }
+if(view==='tasks'){
+  mid.innerHTML = mechanicTasks(user);
+  bindMechanicTasks(user);
+  bindTaskFileUploads(user);
+}
+if(view==='lube'){
+  mid.innerHTML = mechanicLube(user);
+  bindMechanicLube(user);
+}
+if(view==='notes'){
+  mid.innerHTML = mechanicNotes(user);
+  bindMechanicNotes(user);
+}
+if(view==='password'){
+  mid.innerHTML = changePasswordUI(user);
+  bindChangePassword(user);
+}
 }
 
 /* MECH – TASKS */
@@ -3695,7 +3872,17 @@ function mechanicTasks(user){
           <button class="btn amber" data-pass-manager="${t.id}">Perduoti vadovui</button>
           <button class="btn green" data-done="${t.id}">Baigta (siųsti patvirtinimui)</button>
         </div>
-      </div>
+        <div style="margin-top:10px">
+  <div class="muted">Pridėti foto / dokumentą</div>
+  <input type="file" class="taskFileInput" data-task-file="${t.id}">
+  <div class="right" style="margin-top:6px">
+    <button class="btn" data-upload-task-file="${t.id}">Įkelti failą</button>
+  </div>
+  <div style="margin-top:6px">
+    ${taskFilesHtml(t.id)}
+  </div>
+</div>
+
     `;
   }).join('') : '<div class="card muted">Aktyvių užduočių nėra</div>';
 
@@ -3796,6 +3983,7 @@ function bindMechanicTasks(user){
     };
   });
 
+  
 document.querySelectorAll('[data-reopen]').forEach(b=>{
   b.onclick = ()=>{
     const id = b.getAttribute('data-reopen');
@@ -4295,6 +4483,7 @@ setInterval(async () => {
 
   const oldState = JSON.stringify({
     tasks: db.tasks || [],
+    taskFiles: db.taskFiles || [],
     users: db.users || [],
     equipment: db.equipment || [],
     grabs: db.grabs || [],
@@ -4318,6 +4507,7 @@ setInterval(async () => {
   if(grabsFromCloud.length) db.grabs = grabsFromCloud;
 
   db.notes = await loadNotesFromSupabase();
+  db.taskFiles = await loadTaskFilesFromSupabase();
   db.approvals = await loadApprovalsFromSupabase();
   db.completed = await loadCompletedFromSupabase();
   db.lube = await loadLubeFromSupabase();
@@ -4325,6 +4515,7 @@ setInterval(async () => {
 
   const newState = JSON.stringify({
     tasks: db.tasks || [],
+    taskFiles: db.taskFiles || [],
     users: db.users || [],
     equipment: db.equipment || [],
     grabs: db.grabs || [],
