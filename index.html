@@ -2761,6 +2761,7 @@ document.querySelectorAll('[data-wait]').forEach(b => {
 
 /* ADMIN – APPROVALS */
 function adminApprovals(){
+  console.log('adminApprovals render suveikė');
   const rows=db.approvals.map(a=>`
     <tr>
       <td>${escapeHtml(a.date||'')}</td>
@@ -2770,10 +2771,10 @@ function adminApprovals(){
       <td>${escapeHtml(fmtMinutes(a.durationMin||0))}</td>
       <td>${escapeHtml(a.comment||'—')}</td>
       <td>${(a.helpers||[]).length ? escapeHtml(a.helpers.map(userDisplay).join(', ')) : '—'}</td>
-      <td class="right">
-        <button class="btn green" data-ok="${a.id}">Patvirtinti</button>
-        <button class="btn red" data-no="${a.id}">Grąžinti</button>
-      </td>
+<td class="right">
+  <button class="btn green" onclick="alert('PATVIRTINTI PASPAUSTAS: ${a.id}')" data-ok="${a.id}">Patvirtinti</button>
+  <button class="btn red" onclick="alert('GRAZINTI PASPAUSTAS: ${a.id}')" data-no="${a.id}">Grąžinti</button>
+</td>
     </tr>
   `).join('') || '<tr><td colspan="8" class="muted">Nėra laukiančių</td></tr>';
 
