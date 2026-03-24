@@ -253,7 +253,102 @@ return (data || []).map(t => ({
   createdByRole: t.created_by_role || ''
 }));
 }
+async function loadNotesFromSupabase(){
+  const { data, error } = await sb
+    .from('notes')
+    .select('*')
+    .order('created_at', { ascending: false });
 
+  if(error){
+    console.error('Klaida gaunant notes:', error);
+    return [];
+  }
+
+  return (data || []).map(n => ({
+    id: n.id,
+    equipId: n.equip_id,
+    date: n.date || '',
+    text: n.text || '',
+    author: n.author || '',
+    type: n.type || '',
+    status: n.status || '',
+    linkedTaskId: n.linked_task_id || null,
+    checklistPoint: n.checklist_point || ''
+  }));
+}
+
+async function createNoteInSupabase(note){
+  const payload = {
+    equip_id: note.equipId,
+    date: note.date || '',
+    text: note.text || '',
+    author: note.author || '',
+    type: note.type || '',
+    status: note.status || null,
+    linked_task_id: note.linkedTaskId || null,
+    checklist_point: note.checklistPoint || null
+  };
+
+  const { data, error } = await sb
+    .from('notes')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant note:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    equipId: data.equip_id,
+    date: data.date || '',
+    text: data.text || '',
+    author: data.author || '',
+    type: data.type || '',
+    status: data.status || '',
+    linkedTaskId: data.linked_task_id || null,
+    checklistPoint: data.checklist_point || ''
+  };
+}
+
+async function updateNoteInSupabase(noteId, updates){
+  const payload = {};
+
+  if(updates.equipId !== undefined) payload.equip_id = updates.equipId;
+  if(updates.date !== undefined) payload.date = updates.date;
+  if(updates.text !== undefined) payload.text = updates.text;
+  if(updates.author !== undefined) payload.author = updates.author;
+  if(updates.type !== undefined) payload.type = updates.type;
+  if(updates.status !== undefined) payload.status = updates.status;
+  if(updates.linkedTaskId !== undefined) payload.linked_task_id = updates.linkedTaskId;
+  if(updates.checklistPoint !== undefined) payload.checklist_point = updates.checklistPoint;
+
+  const { data, error } = await sb
+    .from('notes')
+    .update(payload)
+    .eq('id', noteId)
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida atnaujinant note:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    equipId: data.equip_id,
+    date: data.date || '',
+    text: data.text || '',
+    author: data.author || '',
+    type: data.type || '',
+    status: data.status || '',
+    linkedTaskId: data.linked_task_id || null,
+    checklistPoint: data.checklist_point || ''
+  };
+}
 async function loadUsersFromSupabase(){
   const { data, error } = await sb
     .from('users')
@@ -333,6 +428,20 @@ async function createUserInSupabase(user){
     password: data.password,
     equipId: data.equip_id || null
   };
+}
+
+async function deleteUserFromSupabase(userId){
+  const { error } = await sb
+    .from('users')
+    .delete()
+    .eq('id', userId);
+
+  if(error){
+    console.error('Klaida trinant user:', error);
+    return false;
+  }
+
+  return true;
 }
 
 async function updateTaskInSupabase(taskId, updates){
@@ -573,6 +682,266 @@ async function createGrabInSupabase(grab){
     parentEquipId: data.parent_equip_id || ''
   };
 }
+async function loadApprovalsFromSupabase(){
+  const { data, error } = await sb
+    .from('approvals')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Klaida gaunant approvals:', error);
+    return [];
+  }
+
+  return (data || []).map(a => ({
+    id: a.id,
+    taskId: a.task_id || null,
+    equipId: a.equip_id || '',
+    issue: a.issue || '',
+    date: a.date || '',
+    start: a.start || '',
+    durationMin: a.duration_min || 0,
+    doneBy: a.done_by || '',
+    doneById: a.done_by_id || null,
+    role: a.role || '',
+    comment: a.comment || '',
+    initialComment: a.initial_comment || '',
+    helpers: Array.isArray(a.helpers) ? a.helpers : []
+  }));
+}
+
+async function createApprovalInSupabase(approval){
+  const payload = {
+    task_id: approval.taskId || null,
+    equip_id: approval.equipId,
+    issue: approval.issue,
+    date: approval.date || '',
+    start: approval.start || '',
+    duration_min: approval.durationMin || 0,
+    done_by: approval.doneBy || '',
+    done_by_id: approval.doneById || null,
+    role: approval.role || '',
+    comment: approval.comment || '',
+    initial_comment: approval.initialComment || '',
+    helpers: approval.helpers || []
+  };
+
+  const { data, error } = await sb
+    .from('approvals')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant approval:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    taskId: data.task_id || null,
+    equipId: data.equip_id || '',
+    issue: data.issue || '',
+    date: data.date || '',
+    start: data.start || '',
+    durationMin: data.duration_min || 0,
+    doneBy: data.done_by || '',
+    doneById: data.done_by_id || null,
+    role: data.role || '',
+    comment: data.comment || '',
+    initialComment: data.initial_comment || '',
+    helpers: Array.isArray(data.helpers) ? data.helpers : []
+  };
+}
+
+async function deleteApprovalFromSupabase(id){
+  const { error } = await sb
+    .from('approvals')
+    .delete()
+    .eq('id', id);
+
+  if(error){
+    console.error('Klaida trinant approval:', error);
+    return false;
+  }
+
+  return true;
+}
+async function loadCompletedFromSupabase(){
+  const { data, error } = await sb
+    .from('completed')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Klaida gaunant completed:', error);
+    return [];
+  }
+
+  return (data || []).map(c => ({
+    id: c.id,
+    equipId: c.equip_id || '',
+    title: c.title || '',
+    date: c.date || '',
+    durationMin: c.duration_min || 0,
+    doneBy: c.done_by || '',
+    doneById: c.done_by_id || null,
+    role: c.role || '',
+    comment: c.comment || '',
+    helpers: Array.isArray(c.helpers) ? c.helpers : [],
+    progressLog: Array.isArray(c.progress_log) ? c.progress_log : []
+  }));
+}
+
+async function createCompletedInSupabase(item){
+  const payload = {
+    equip_id: item.equipId,
+    title: item.title,
+    date: item.date || '',
+    duration_min: item.durationMin || 0,
+    done_by: item.doneBy || '',
+    done_by_id: item.doneById || null,
+    role: item.role || '',
+    comment: item.comment || '',
+    helpers: item.helpers || [],
+    progress_log: item.progressLog || []
+  };
+
+  const { data, error } = await sb
+    .from('completed')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant completed:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    equipId: data.equip_id || '',
+    title: data.title || '',
+    date: data.date || '',
+    durationMin: data.duration_min || 0,
+    doneBy: data.done_by || '',
+    doneById: data.done_by_id || null,
+    role: data.role || '',
+    comment: data.comment || '',
+    helpers: Array.isArray(data.helpers) ? data.helpers : [],
+    progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
+  };
+}
+
+async function loadLubeFromSupabase(){
+  const { data, error } = await sb
+    .from('lube_records')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Klaida gaunant lube_records:', error);
+    return {};
+  }
+
+  const grouped = {};
+  (data || []).forEach(r => {
+    const assetId = r.asset_id;
+    if(!grouped[assetId]) grouped[assetId] = [];
+    grouped[assetId].push({
+      id: r.id,
+      date: r.date || '',
+      by: r.by_name || '',
+      byId: r.by_id || null,
+      note: r.note || ''
+    });
+  });
+
+  return grouped;
+}
+
+async function createLubeRecordInSupabase(rec){
+  const payload = {
+    asset_id: rec.assetId,
+    date: rec.date || '',
+    by_name: rec.by || '',
+    by_id: rec.byId || null,
+    note: rec.note || ''
+  };
+
+  console.log('LUBE payload:', payload);
+
+  const { data, error } = await sb
+    .from('lube_records')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant lube record:', error);
+    alert('Supabase klaida: ' + (error.message || JSON.stringify(error)));
+    return null;
+  }
+
+  return {
+    id: data.id,
+    assetId: data.asset_id,
+    date: data.date || '',
+    by: data.by_name || '',
+    byId: data.by_id || null,
+    note: data.note || ''
+  };
+}
+async function loadDailyChecksFromSupabase(){
+  const { data, error } = await sb
+    .from('daily_checks')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if(error){
+    console.error('Klaida gaunant daily_checks:', error);
+    return [];
+  }
+
+  return (data || []).map(x => ({
+    id: x.id,
+    equipId: x.equip_id,
+    userId: x.user_id,
+    userName: x.user_name || '',
+    date: x.date || '',
+    doneAt: x.done_at || null
+  }));
+}
+
+async function saveDailyCheckInSupabase(item){
+  const payload = {
+    equip_id: item.equipId,
+    user_id: item.userId,
+    user_name: item.userName || '',
+    date: item.date || '',
+    done_at: item.doneAt || null
+  };
+
+  const { data, error } = await sb
+    .from('daily_checks')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida saugant daily check:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    equipId: data.equip_id,
+    userId: data.user_id,
+    userName: data.user_name || '',
+    date: data.date || '',
+    doneAt: data.done_at || null
+  };
+}
 
 async function updateGrabInSupabase(grabId, updates){
   const payload = {};
@@ -600,33 +969,35 @@ async function updateGrabInSupabase(grabId, updates){
 }
 
 async function boot(){
-  db = loadDB();
-  if(!db){
-    db = seedDB();
-    saveDB_local(db);
-  }
+  db = seedDB();
 
   const usersFromCloud = await loadUsersFromSupabase();
-  if(usersFromCloud.length){
-    db.users = usersFromCloud;
-  }
+  if(usersFromCloud.length) db.users = usersFromCloud;
 
   const tasksFromCloud = await loadTasksFromSupabase();
-  if(tasksFromCloud.length){
-    db.tasks = tasksFromCloud;
-  }
+  if(tasksFromCloud.length) db.tasks = tasksFromCloud;
 
   const equipmentFromCloud = await loadEquipmentFromSupabase();
-  if(equipmentFromCloud.length){
-    db.equipment = equipmentFromCloud;
-  }
+  if(equipmentFromCloud.length) db.equipment = equipmentFromCloud;
 
   const grabsFromCloud = await loadGrabsFromSupabase();
-  if(grabsFromCloud.length){
-    db.grabs = grabsFromCloud;
-  }
+  if(grabsFromCloud.length) db.grabs = grabsFromCloud;
 
-  saveDB_local(db);
+  const notesFromCloud = await loadNotesFromSupabase();
+  db.notes = notesFromCloud;
+
+  const approvalsFromCloud = await loadApprovalsFromSupabase();
+  db.approvals = approvalsFromCloud;
+
+  const completedFromCloud = await loadCompletedFromSupabase();
+  db.completed = completedFromCloud;
+
+  const lubeFromCloud = await loadLubeFromSupabase();
+  db.lube = lubeFromCloud;
+
+  const dailyChecksFromCloud = await loadDailyChecksFromSupabase();
+  db.dailyChecks = dailyChecksFromCloud;
+
   render();
 }
 
@@ -763,28 +1134,17 @@ async function apiSaveDB(dbObj){
 
 // ===== local + online wrapper =====
 function loadDB(){
-  try{
-    const raw = localStorage.getItem(DB_KEY);
-    if(!raw) return null;
-    return JSON.parse(raw);
-  }catch(e){
     return null;
   }
-}
+
 
 function saveDB_local(dbObj){
-  localStorage.setItem(DB_KEY, JSON.stringify(dbObj));
+  return;
 }
 
-// Kad nereikėtų perrašinėti viso tavo kodo (kur kviečia saveDB(db)):
-async function saveDB(dbObj){
-  // visada išsisaugom lokaliai (kad veiktų offline)
-  saveDB_local(dbObj);
 
-  // jei online įjungtas – siunčiam į serverį
-  if(ONLINE){
-    try{ await apiSaveDB(dbObj); }catch(e){ /* tyli klaida */ }
-  }
+async function saveDB(dbObj){
+  return;
 }
 
 
@@ -830,16 +1190,6 @@ const db = {
 }
 
 let db = null;
-
-
-
-/* realtime sync */
-window.addEventListener('storage', (e)=>{
-  if(e.key===DB_KEY){
-    const newer=loadDB();
-    if(newer){ db=newer; render(); }
-  }
-});
 
 /* derived */
 function currentUser(){
@@ -940,24 +1290,51 @@ function changePasswordUI(user){
     </div>`;
 }
 function bindChangePassword(user){
-  const b=document.getElementById('pwSave');
+  const b = document.getElementById('pwSave');
   if(!b) return;
-  b.onclick=()=>{
-    const oldv=safeTrim(document.getElementById('pwOld').value);
-    const nv1=safeTrim(document.getElementById('pwNew').value);
-    const nv2=safeTrim(document.getElementById('pwNew2').value);
-    const msg=document.getElementById('pwMsg');
-    msg.textContent='';
-    if(oldv!==user.password){ msg.textContent='Dabartinis slaptažodis neteisingas.'; return; }
-    if(!nv1 || nv1.length<4){ msg.textContent='Naujas slaptažodis per trumpas (min 4).'; return; }
-    if(nv1!==nv2){ msg.textContent='Nauji slaptažodžiai nesutampa.'; return; }
-    const idx=db.users.findIndex(x=>x.id===user.id);
-    db.users[idx].password=nv1;
-    saveDB(db);
-    msg.textContent='Slaptažodis pakeistas.';
-    document.getElementById('pwOld').value='';
-    document.getElementById('pwNew').value='';
-    document.getElementById('pwNew2').value='';
+
+  b.onclick = async ()=>{
+    const oldv = safeTrim(document.getElementById('pwOld').value);
+    const nv1 = safeTrim(document.getElementById('pwNew').value);
+    const nv2 = safeTrim(document.getElementById('pwNew2').value);
+    const msg = document.getElementById('pwMsg');
+    msg.textContent = '';
+
+    if(oldv !== user.password){
+      msg.textContent = 'Dabartinis slaptažodis neteisingas.';
+      return;
+    }
+
+    if(!nv1 || nv1.length < 4){
+      msg.textContent = 'Naujas slaptažodis per trumpas (min 4).';
+      return;
+    }
+
+    if(nv1 !== nv2){
+      msg.textContent = 'Nauji slaptažodžiai nesutampa.';
+      return;
+    }
+
+    const updatedUser = await updateUserInSupabase(user.id, {
+      password: nv1
+    });
+
+    if(!updatedUser){
+      msg.textContent = 'Nepavyko pakeisti slaptažodžio.';
+      return;
+    }
+
+    const idx = db.users.findIndex(x => x.id === user.id);
+    if(idx >= 0) db.users[idx] = updatedUser;
+
+    if(db.session?.currentUser?.id === user.id){
+      db.session.currentUser = updatedUser;
+    }
+
+    msg.textContent = 'Slaptažodis pakeistas.';
+    document.getElementById('pwOld').value = '';
+    document.getElementById('pwNew').value = '';
+    document.getElementById('pwNew2').value = '';
   };
 }
 
@@ -1577,18 +1954,29 @@ if(eqEl) eqEl.value = u.equipId || '';
 msg.textContent='Redaguoji: '+(u.display||u.username);
     };
   });
-  document.querySelectorAll('[data-del-user]').forEach(b=>{
-    b.onclick=()=>{
-      const id=b.getAttribute('data-del-user');
-      const u=db.users.find(x=>x.id===id);
-      if(!u) return;
-      if(!confirm('Trinti '+(u.display||u.username)+'?')) return;
-      db.users=db.users.filter(x=>x.id!==id);
-      db.tasks.forEach(t=>{ t.assignedTo=(t.assignedTo||[]).filter(uid=>uid!==id); });
-      saveDB(db);
-      render();
-    };
-  });
+document.querySelectorAll('[data-del-user]').forEach(b=>{
+  b.onclick = async ()=>{
+    const id = b.getAttribute('data-del-user');
+    const u = db.users.find(x=>x.id===id);
+    if(!u) return;
+
+    if(!confirm('Trinti ' + (u.display||u.username) + '?')) return;
+
+    const ok = await deleteUserFromSupabase(id);
+    if(!ok){
+      alert('Nepavyko ištrinti naudotojo iš Supabase');
+      return;
+    }
+
+    db.users = db.users.filter(x=>x.id!==id);
+    db.tasks.forEach(t=>{
+      t.assignedTo = (t.assignedTo || []).filter(uid => uid !== id);
+    });
+
+    saveDB_local(db);
+    render();
+  };
+});
 }
 
 /* ADMIN – EQUIP */
@@ -1955,7 +2343,6 @@ function bindAdminTasks(){
 
       if(comment){
         t.progressLog.push({
-          id: rid(),
           date: fmt(Date.now()),
           byId: currentUser()?.id || null,
           byName: currentUser()?.display || currentUser()?.username || 'Vadovas',
@@ -2071,36 +2458,53 @@ function bindAdminTasks(){
     };
   });
 
-  document.querySelectorAll('[data-finish]').forEach(b=>{
+document.querySelectorAll('[data-finish]').forEach(b=>{
+  b.onclick = async ()=>{
+    const id = b.getAttribute('data-finish');
+    const t = db.tasks.find(x=>x.id===id);
+    if(!t) return;
 
-    b.onclick = ()=>{
-      const id = b.getAttribute('data-finish');
-      const t = db.tasks.find(x=>x.id===id);
-      if(!t) return;
+    const updatedTask = await updateTaskInSupabase(t.id, {
+      status: 'Laukia patvirtinimo',
+      progressLog: t.progressLog || []
+    });
 
-      t.status = 'Laukia patvirtinimo';
-      if(db.session.opRunningByEquip && db.session.opRunningByEquip[t.equipId] === t.id){
-  delete db.session.opRunningByEquip[t.equipId];
-}
-      db.approvals.unshift({
-        id: rid(),
-        taskId: t.id,
-        equipId: t.equipId,
-        issue: t.title,
-        date: today(),
-        reportedAt: t.reportedAt,
-        doneAt: Date.now(),
-        doneBy: 'Admin',
-        doneById: 'u-admin',
-        role: 'admin',
-        comment: '',
-        helpers: []
-      });
+    if(!updatedTask){
+      alert('Nepavyko užbaigti užduoties');
+      return;
+    }
 
-      saveDB(db);
-      render();
-    };
-  });
+    if(db.session.opRunningByEquip && db.session.opRunningByEquip[t.equipId] === t.id){
+      delete db.session.opRunningByEquip[t.equipId];
+    }
+
+const savedApproval = await createApprovalInSupabase({
+  taskId: updatedTask.id,
+  equipId: updatedTask.equipId,
+  issue: updatedTask.title,
+  date: today(),
+  start: nowHM(),
+  durationMin: 30,
+  doneBy: currentUser()?.display || currentUser()?.username || 'Admin',
+  doneById: currentUser()?.id || null,
+  role: 'admin',
+  comment: '',
+  initialComment: updatedTask.initialComment || '',
+  helpers: []
+});
+
+    if(!savedApproval){
+      alert('Nepavyko sukurti patvirtinimo.');
+      return;
+    }
+
+    const idx = db.tasks.findIndex(x => x.id === t.id);
+    if(idx >= 0) db.tasks[idx] = updatedTask;
+
+    db.approvals.unshift(savedApproval);
+    render();
+  };
+});
 }
 
 function bindAdminWaitingTasks(){
@@ -2132,7 +2536,6 @@ document.querySelectorAll('[data-wait]').forEach(b => {
 
       if(comment){
         newProgressLog.push({
-          id: rid(),
           date: fmt(Date.now()),
           byId: currentUser()?.id || null,
           byName: currentUser()?.display || currentUser()?.username || 'Vadovas',
@@ -2221,11 +2624,12 @@ function adminApprovals(){
 }
 function bindAdminApprovals(){
   document.querySelectorAll('[data-ok]').forEach(b=>{
-    b.onclick=()=>{
-      const id=b.getAttribute('data-ok');
-      const idx=db.approvals.findIndex(x=>x.id===id);
-      if(idx<0) return;
-      const a=db.approvals[idx];
+    b.onclick = async ()=>{
+      const id = b.getAttribute('data-ok');
+      const idx = db.approvals.findIndex(x=>x.id===id);
+      if(idx < 0) return;
+
+      const a = db.approvals[idx];
 
       let progressLog = [];
       if(a.taskId){
@@ -2235,51 +2639,113 @@ function bindAdminApprovals(){
         }
       }
 
-      db.approvals.splice(idx,1);
+const savedCompleted = await createCompletedInSupabase({
+  equipId: a.equipId,
+  title: a.issue,
+  date: a.date,
+  durationMin: a.durationMin || 0,
+  doneBy: a.doneBy,
+  doneById: a.doneById,
+  role: (a.role === 'mechanikas' ? 'mechanic' : 'operator'),
+  comment: a.comment || '',
+  helpers: a.helpers || [],
+  progressLog: progressLog
+});
 
-      db.completed.unshift({
-        id:rid(),
-        equipId:a.equipId,
-        title:a.issue,
-        date:a.date,
-        durationMin:a.durationMin||0,
-        doneBy:a.doneBy,
-        doneById:a.doneById,
-        role:(a.role==='mechanikas'?'mechanic':'operator'),
-        comment:a.comment||'',
-        helpers:a.helpers||[],
-        progressLog: progressLog
-      });
+      if(!savedCompleted){
+        alert('Nepavyko perkelti į istoriją.');
+        return;
+      }
+
+      const deleted = await deleteApprovalFromSupabase(a.id);
+      if(!deleted){
+        alert('Nepavyko pašalinti patvirtinimo.');
+        return;
+      }
 
       if(a.taskId){
-        const t=db.tasks.find(x=>x.id===a.taskId);
-        if(t) t.status='Užbaigta';
+        const t = db.tasks.find(x=>x.id===a.taskId);
+        if(t){
+          const updatedTask = await updateTaskInSupabase(t.id, {
+            status: 'Užbaigta',
+            progressLog: t.progressLog || []
+          });
+          if(updatedTask){
+            const tIdx = db.tasks.findIndex(x=>x.id===t.id);
+            if(tIdx >= 0) db.tasks[tIdx] = updatedTask;
+          }
+        }
       }
-      saveDB(db);
+
+      db.approvals.splice(idx,1);
+      db.completed.unshift(savedCompleted);
       render();
     };
   });
 
-  document.querySelectorAll('[data-no]').forEach(b=>{
-    b.onclick=()=>{
-      const id=b.getAttribute('data-no');
-      const idx=db.approvals.findIndex(x=>x.id===id);
-      if(idx<0) return;
-      const a=db.approvals[idx];
-      db.approvals.splice(idx,1);
-      db.tasks.unshift({ id:rid(), equipId:a.equipId, title:'Grąžinta: '+a.issue, status:'Nauja', assignedTo:[], shared:true, source:'admin', createdAt:Date.now() });
-      saveDB(db);
-      render();
-    };
-  });
+document.querySelectorAll('[data-no]').forEach(b=>{
+  b.onclick = async ()=>{
+    const id = b.getAttribute('data-no');
+    const idx = db.approvals.findIndex(x=>x.id===id);
+    if(idx < 0) return;
+
+    const a = db.approvals[idx];
+
+    const deleted = await deleteApprovalFromSupabase(a.id);
+    if(!deleted){
+      alert('Nepavyko pašalinti patvirtinimo.');
+      return;
+    }
+
+    if(a.taskId){
+      const oldTask = db.tasks.find(x=>x.id===a.taskId);
+
+      if(oldTask){
+        const updatedTask = await updateTaskInSupabase(oldTask.id, {
+          status: 'Nauja',
+          progressLog: oldTask.progressLog || []
+        });
+
+        if(!updatedTask){
+          alert('Nepavyko grąžinti senos užduoties.');
+          return;
+        }
+
+        const tIdx = db.tasks.findIndex(x=>x.id===oldTask.id);
+        if(tIdx >= 0) db.tasks[tIdx] = updatedTask;
+      }
+    } else {
+      const savedTask = await createTaskInSupabase({
+        equipId: a.equipId,
+        title: 'Grąžinta: ' + a.issue,
+        status: 'Nauja',
+        assignedTo: [],
+        shared: true,
+        source: 'admin',
+        createdAt: Date.now(),
+        createdBy: currentUser()?.display || currentUser()?.username || 'Admin',
+        createdById: currentUser()?.id || null,
+        createdByRole: currentUser()?.role || 'admin'
+      });
+
+      if(!savedTask){
+        alert('Nepavyko grąžinti užduoties.');
+        return;
+      }
+
+      db.tasks.unshift(savedTask);
+    }
+
+    db.approvals.splice(idx,1);
+    render();
+  };
+});
 }
 
-/* ADMIN – NOTES (vadovas) */
 function adminNotes(){
   const rows = (db.notes||[])
-    .filter(n => n.status !== 'task') // 🔥 NEBERODOM PAVERSTŲ
+    .filter(n => n.status !== 'task')
     .map(n=>{
-
       const isTask = n.status === 'task';
       const statusLabel = isTask ? 'Paversta į užduotį (vykdoma)' : 'Atvira pastaba';
 
@@ -2309,6 +2775,7 @@ function adminNotes(){
   `;
 }
 
+/* ADMIN – NOTES (vadovas) */
 function bindAdminNotes(user){
   document.querySelectorAll('[data-nt]').forEach(btn=>{
     btn.onclick = ()=>{
@@ -2331,14 +2798,12 @@ function bindAdminNotes(user){
         modal.classList.add('hidden');
       };
 
-      // Create
-      document.getElementById('ntCreate').onclick = ()=>{
+      document.getElementById('ntCreate').onclick = async ()=>{
         const title = safeTrim(document.getElementById('ntTitle').value) || 'Užduotis';
         const comment = safeTrim(document.getElementById('ntComment').value);
         const mechList = Array.from(mechSel.selectedOptions).map(o=>o.value);
 
-        const newTask = {
-          id: rid(),
+        const savedTask = await createTaskInSupabase({
           equipId: note.equipId,
           title,
           status:'Nauja',
@@ -2347,23 +2812,35 @@ function bindAdminNotes(user){
           assignedTo: mechList,
           createdAt: Date.now(),
           initialComment: comment,
-          fromNoteId: id
-        };
+          fromNoteId: id,
+          createdBy: currentUser()?.display || currentUser()?.username || 'Admin',
+          createdById: currentUser()?.id || null,
+          createdByRole: currentUser()?.role || 'admin'
+        });
 
-        db.tasks.unshift(newTask);
+        if(!savedTask){
+          alert('Nepavyko sukurti užduoties iš pastabos.');
+          return;
+        }
 
-        // pažymim pačią pastabą, kad ji jau paversta į užduotį
-        note.status = 'task';
-        note.linkedTaskId = newTask.id;
+        const updatedNote = await updateNoteInSupabase(note.id, {
+          status: 'task',
+          linkedTaskId: savedTask.id
+        });
 
-        saveDB(db);
+        if(!updatedNote){
+          alert('Užduotis sukurta, bet nepavyko atnaujinti pastabos statuso.');
+          return;
+        }
+
+        db.tasks.unshift(savedTask);
+        const noteIdx = db.notes.findIndex(n => n.id === note.id);
+        if(noteIdx >= 0) db.notes[noteIdx] = updatedNote;
 
         document.getElementById('noteToTaskModal').classList.add('hidden');
-
         alert('Užduotis sukurta iš pastabos');
         render();
       };
-
     };
   });
 }
@@ -2522,24 +2999,6 @@ function ensureOperatorData(){
 
   if(!db.plans) db.plans = {}; // plans[equipId] = [{id,type,at,note}]
 }
-function getChecklistFieldsFor(eid){
-  if(!db.checklistsByEquip) db.checklistsByEquip = {};
-
-  const byEquip = db.checklistsByEquip;
-
-  // jei konkrečiai technikai yra savo sąrašas – naudojam jį
-  if(byEquip[eid] && Array.isArray(byEquip[eid]) && byEquip[eid].length){
-    return byEquip[eid];
-  }
-
-  // kitaip – default
-  if(byEquip._default && Array.isArray(byEquip._default) && byEquip._default.length){
-    return byEquip._default;
-  }
-
-  // visiškai „ant plyno“ – fallback į seną funkciją
-  return operatorChecklistDefaults();
-}
 
 function getChecklistFieldsFor(eid){
   if(!db.checklistsByEquip) db.checklistsByEquip = {};
@@ -2656,12 +3115,13 @@ function renderOperator(root,user){
           <span class="pill">Operatorius: ${escapeHtml(user.display||user.username)}</span>
         </div>
 
-        <div class="row row-2" style="margin-top:10px">
+<div class="row row-2" style="margin-top:10px">
   <button class="btn green" id="opCheck">MAŠINOS PATIKRA</button>
   <button class="btn primary" id="opRep" ${todayChecked ? '' : 'disabled'}>REMONTAS</button>
 </div>
 
-<div style="margin-top:8px">
+<div class="row row-2" style="margin-top:8px">
+  <button class="btn amber" id="opQuickNote">PRANEŠTI TRŪKUMĄ</button>
   <button class="btn" id="opHist" ${todayChecked ? '' : 'disabled'}>ISTORIJA / PASTABOS</button>
 </div>
       </div>
@@ -2673,21 +3133,29 @@ function renderOperator(root,user){
     `;
 
 
-    document.getElementById('opCheck').onclick = () => {
-      db.session.opView = 'check';
-      saveDB(db);
-      render();
-    };
-    document.getElementById('opRep').onclick = () => {
-      db.session.opView = 'repair';
-      saveDB(db);
-      render();
-    };
-    document.getElementById('opHist').onclick = () => {
-      db.session.opView = 'history';
-      saveDB(db);
-      render();
-    };
+document.getElementById('opCheck').onclick = () => {
+  db.session.opView = 'check';
+  saveDB(db);
+  render();
+};
+
+document.getElementById('opRep').onclick = () => {
+  db.session.opView = 'repair';
+  saveDB(db);
+  render();
+};
+
+document.getElementById('opQuickNote').onclick = () => {
+  db.session.opView = 'quicknote';
+  saveDB(db);
+  render();
+};
+
+document.getElementById('opHist').onclick = () => {
+  db.session.opView = 'history';
+  saveDB(db);
+  render();
+};
 
     return;
   }
@@ -2784,23 +3252,19 @@ ${todayChecked ? `
 
 
     // patikros išsaugojimas
-document.getElementById('opSaveCheck').onclick = () => {
+document.getElementById('opSaveCheck').onclick = async () => {
   const cards = Array.from(body.querySelectorAll('.chkCard'));
   let hasError = false;
 
-  // 1) Patikrinam ar visi punktai pažymėti
   for (const card of cards) {
     const status = card.dataset.status || 'none';
-    const idx = card.getAttribute('data-i');
 
-    // jei nepasirinko OK/NOT OK
     if (status === 'none') {
       card.classList.add('req-miss');
       hasError = true;
       continue;
     }
 
-    // 2) jei NOT OK – privalomas komentaras
     if (status === 'nok') {
       const ta = card.querySelector('.narea');
       const val = safeTrim(ta ? ta.value : '');
@@ -2813,17 +3277,15 @@ document.getElementById('opSaveCheck').onclick = () => {
 
   if (hasError) {
     alert('❗ Negalima išsaugoti: visi punktai turi būti pažymėti OK arba NOT OK. Jei NOT OK – būtina pastaba.');
-    // nurolinam iki pirmo blogo
     const firstBad = body.querySelector('.req-miss');
     if (firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
-  // 3) Jei viskas OK – įrašom tik NOT OK su komentarais (kaip darai dabar)
   const fields = getChecklistForEquip(eid);
   let added = 0;
 
-  cards.forEach(card => {
+  for (const card of cards) {
     const idx = card.getAttribute('data-i');
     const status = card.dataset.status;
 
@@ -2832,8 +3294,7 @@ document.getElementById('opSaveCheck').onclick = () => {
       const val = safeTrim(ta ? ta.value : '');
       const point = fields[idx] || 'Nežinomas punktas';
 
-      db.notes.unshift({
-        id: rid(),
+      const savedNote = await createNoteInSupabase({
         equipId: eid,
         date: today(),
         text: `❌ ${point} – ${val}`,
@@ -2842,30 +3303,39 @@ document.getElementById('opSaveCheck').onclick = () => {
         checklistPoint: point
       });
 
+      if (!savedNote) {
+        alert('Nepavyko išsaugoti vieno iš NOT OK įrašų.');
+        return;
+      }
+
+      db.notes.unshift(savedNote);
       added++;
     }
-  });
-  ensureDailyChecks();
+  }
 
   db.dailyChecks = db.dailyChecks.filter(x =>
     !(x.equipId === eid && x.date === today())
   );
 
-  db.dailyChecks.push({
-    id: rid(),
+  const savedDailyCheck = await saveDailyCheckInSupabase({
     equipId: eid,
     userId: user.id,
     userName: user.display || user.username,
     date: today(),
-    doneAt: Date.now()
+    doneAt: new Date().toISOString()
   });
+
+  if (!savedDailyCheck) {
+    alert('Nepavyko išsaugoti dienos patikros.');
+    return;
+  }
+
+  db.dailyChecks.push(savedDailyCheck);
 
   alert('✅ Patikra išsaugota.' + (added ? (' NOT OK įrašų: ' + added) : ''));
   db.session.opView = 'home';
-  saveDB(db);
   render();
 };
-
 
     return;
   }
@@ -2930,7 +3400,6 @@ if (startBtn) {
     const startVal = safeTrim(document.getElementById('repStart')?.value) || nowHM();
 
 const task = {
-  id: rid(),
   equipId: eid,
   title,
   status: 'Vykdoma',
@@ -2972,7 +3441,61 @@ if (finBtn) {
 
     return;
   }
+/* GREITAS TRŪKUMO PRANEŠIMAS */
+if (view === 'quicknote') {
+  body.innerHTML = `
+    <div class="card">
+      <button class="btn" id="opBackQuick">← Atgal</button>
+      <h3>Pranešti trūkumą</h3>
 
+      <div class="muted" style="margin-bottom:8px">
+        Čia galite greitai įrašyti pastebėtą trūkumą neužpildydami visos dienos patikros.
+      </div>
+
+      <div>
+        <div class="muted">Trūkumo aprašymas</div>
+        <textarea id="quickNoteText" placeholder="Pvz.: bėga tepalas ties kairiu cilindru, neveikia apšvietimas, girdisi pašalinis garsas..."></textarea>
+      </div>
+
+      <div class="right" style="margin-top:10px">
+        <button class="btn amber" id="saveQuickNote">Išsaugoti trūkumą</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('opBackQuick').onclick = () => {
+    db.session.opView = 'home';
+    render();
+  };
+
+  document.getElementById('saveQuickNote').onclick = async () => {
+    const txt = safeTrim(document.getElementById('quickNoteText')?.value || '');
+    if (!txt) {
+      alert('Įrašyk trūkumą.');
+      return;
+    }
+
+    const savedNote = await createNoteInSupabase({
+      equipId: eid,
+      date: today(),
+      text: txt,
+      author: (user.display || user.username),
+      type: 'quick-note'
+    });
+
+    if (!savedNote) {
+      alert('Nepavyko išsaugoti trūkumo.');
+      return;
+    }
+
+    db.notes.unshift(savedNote);
+    db.session.opView = 'home';
+    alert('Trūkumas užregistruotas.');
+    render();
+  };
+
+  return;
+}
   /* ISTORIJA / PASTABOS */
   if (view === 'history') {
     body.innerHTML = `
@@ -3005,21 +3528,27 @@ if (finBtn) {
       render();
     };
 
-    document.getElementById('addNote').onclick = () => {
-      const v = (document.getElementById('newNote').value || '').trim();
-      if (!v) return;
-      db.notes.unshift({
-        id: rid(),
-        equipId: eid,
-        date: today(),
-        text: v,
-        author: (user.display || user.username),
-        type: 'note'
-      });
-      document.getElementById('newNote').value = '';
-      saveDB(db);
-      render();
-    };
+document.getElementById('addNote').onclick = async () => {
+  const v = safeTrim(document.getElementById('newNote').value || '');
+  if (!v) return;
+
+  const savedNote = await createNoteInSupabase({
+    equipId: eid,
+    date: today(),
+    text: v,
+    author: (user.display || user.username),
+    type: 'note'
+  });
+
+  if (!savedNote) {
+    alert('Nepavyko išsaugoti pastabos.');
+    return;
+  }
+
+  db.notes.unshift(savedNote);
+  document.getElementById('newNote').value = '';
+  render();
+};
 
     return;
   }
@@ -3204,19 +3733,40 @@ function mechanicTasks(user){
     `;
   }).join('') : '<div class="muted">Laukiančių užduočių nėra</div>';
 
-  return `
-    ${alarmHtml}
+const eqOpts = (db.equipment || [])
+  .map(e => `<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
+  .join('');
 
-    <div class="card">
-      <h3 style="margin-top:0">Aktyvios užduotys</h3>
-      ${cards}
-    </div>
+return `
+  ${alarmHtml}
 
-    <div class="card">
-      <h3 style="margin-top:0">Laukiančios / perduotos vadovui</h3>
-      ${waitingCards}
+  <div class="card">
+    <h3 style="margin-top:0">Sukurti savo užduotį</h3>
+    <div class="row row-3">
+      <div>
+        <div class="muted">Technika</div>
+        <select id="mEq">${eqOpts}</select>
+      </div>
+      <div>
+        <div class="muted">Užduoties pavadinimas</div>
+        <input id="mTitle" placeholder="Pvz.: Pakeisti žarną, patikrinti cilindrą...">
+      </div>
+      <div class="right" style="align-items:flex-end">
+        <button class="btn primary" id="mCreate">Sukurti užduotį</button>
+      </div>
     </div>
-  `;
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Aktyvios užduotys</h3>
+    ${cards}
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Laukiančios / perduotos vadovui</h3>
+    ${waitingCards}
+  </div>
+`;
 }
 
 function bindMechanicTasks(user){
@@ -3283,7 +3833,6 @@ document.querySelectorAll('[data-pass-manager]').forEach(b=>{
     if(comment){
       if(!t.progressLog) t.progressLog = [];
       t.progressLog.push({
-        id: rid(),
         date: fmt(Date.now()),
         byId: user.id,
         byName: (user.display || user.username),
@@ -3326,7 +3875,6 @@ document.querySelectorAll('[data-pass-manager]').forEach(b=>{
         if(comment){
           if(!t.progressLog) t.progressLog = [];
           t.progressLog.push({
-            id: rid(),
             date: fmt(Date.now()),
             byId: user.id,
             byName: (user.display || user.username),
@@ -3368,7 +3916,6 @@ document.querySelectorAll('[data-done]').forEach(b=>{
 
     if(comment){
       newProgressLog.push({
-        id: rid(),
         date: fmt(Date.now()),
         byId: user.id,
         byName: (user.display || user.username),
@@ -3389,52 +3936,73 @@ document.querySelectorAll('[data-done]').forEach(b=>{
       return;
     }
 
-    const idx = db.tasks.findIndex(x => x.id === t.id);
-    if(idx >= 0){
-      db.tasks[idx] = updatedTask;
+const savedApproval = await createApprovalInSupabase({
+  taskId: updatedTask.id,
+  equipId: updatedTask.equipId,
+  issue: updatedTask.title,
+  date: today(),
+  start: nowHM(),
+  durationMin: 30,
+  doneBy: (user.display || user.username),
+  doneById: user.id,
+  role: 'mechanikas',
+  comment: comment,
+  initialComment: updatedTask.initialComment || '',
+  helpers: helpers
+});
+
+    if(!savedApproval){
+      alert('Nepavyko sukurti patvirtinimo įrašo.');
+      return;
     }
 
-    db.approvals.unshift({
-      id: rid(),
-      taskId: updatedTask.id,
-      equipId: updatedTask.equipId,
-      issue: updatedTask.title,
-      date: today(),
-      start: nowHM(),
-      durationMin: 30,
-      doneBy: (user.display || user.username),
-      doneById: user.id,
-      role: 'mechanikas',
-      comment: comment,
-      initialComment: updatedTask.initialComment || '',
-      helpers: helpers
-    });
+    const idx = db.tasks.findIndex(x => x.id === t.id);
+    if(idx >= 0) db.tasks[idx] = updatedTask;
 
-    saveDB(db);
+    db.approvals.unshift(savedApproval);
     render();
   };
 });
 
-  const create = document.getElementById('mCreate');
-  if(create){
-    create.onclick = ()=>{
-      const equipId = document.getElementById('mEq').value;
-      const title = safeTrim(document.getElementById('mTitle').value) || 'Užduotis';
+const create = document.getElementById('mCreate');
+if(create){
+  create.onclick = async ()=>{
+    const equipId = document.getElementById('mEq')?.value || '';
+    const title = safeTrim(document.getElementById('mTitle')?.value) || 'Užduotis';
 
-      db.tasks.unshift({
-        id: rid(),
-        equipId: equipId,
-        title: title,
-        status: 'Nauja',
-        source: 'operator-report',
-        reportedBy: user.display || user.username,
-        reportedAt: Date.now()
-      });
+    if(!equipId){
+      alert('Pasirink techniką.');
+      return;
+    }
 
-      saveDB(db);
-      render();
+    const newTask = {
+      equipId,
+      title,
+      status: 'Nauja',
+      assignedTo: [],
+      shared: true,
+      source: 'mechanic-self',
+      createdAt: Date.now(),
+      createdBy: user.display || user.username,
+      createdById: user.id,
+      createdByRole: user.role
     };
-  }
+
+    const savedTask = await createTaskInSupabase(newTask);
+
+    if(!savedTask){
+      alert('Nepavyko sukurti užduoties.');
+      return;
+    }
+
+    db.tasks.unshift(savedTask);
+
+    const titleEl = document.getElementById('mTitle');
+    if(titleEl) titleEl.value = '';
+
+    render();
+  };
+}
 }
 
 /* MECH – NOTES (mechanikas) */
@@ -3475,42 +4043,55 @@ function mechanicNotes(user){
 
 function bindMechanicNotes(user){
   document.querySelectorAll('[data-note-task]').forEach(b=>{
-    b.onclick = ()=>{
+    b.onclick = async ()=>{
       const id = b.getAttribute('data-note-task');
       const note = (db.notes || []).find(n => n.id === id);
       if(!note) return;
 
-      // jei jau paversta – nieko nebedarom
       if(note.status === 'task'){
         alert('Ši pastaba jau paversta į užduotį.');
         return;
       }
 
       const title = note.text ? note.text.slice(0,120) : 'Užduotis pagal pastabą';
-
-      // mechaniko komentaras, kai verčia pastabą į užduotį
       const extraComment = prompt('Komentaras (nebūtina, pvz. ką tiksliai atlikti):','') || '';
 
-const newTask = {
-  id: rid(),
-  equipId: note.equipId,
-  title,
-  status: 'Nauja',
-  shared: true,
-  assignedTo: [],
-  source: 'note',
-  fromNoteId: note.id,
-  reportedBy: user.display || user.username,
-  reportedAt: Date.now(),
-  initialComment: extraComment
-};
+      const savedTask = await createTaskInSupabase({
+        equipId: note.equipId,
+        title,
+        status: 'Nauja',
+        shared: true,
+        assignedTo: [],
+        source: 'note',
+        fromNoteId: note.id,
+        reportedBy: user.display || user.username,
+        reportedAt: Date.now(),
+        initialComment: extraComment,
+        createdBy: user.display || user.username,
+        createdById: user.id,
+        createdByRole: user.role
+      });
 
-      db.tasks.unshift(newTask);
+      if(!savedTask){
+        alert('Nepavyko sukurti užduoties iš pastabos.');
+        return;
+      }
 
-      note.status = 'task';
-      note.linkedTaskId = newTask.id;
+      const updatedNote = await updateNoteInSupabase(note.id, {
+        status: 'task',
+        linkedTaskId: savedTask.id
+      });
 
-      saveDB(db);
+      if(!updatedNote){
+        alert('Užduotis sukurta, bet nepavyko atnaujinti pastabos statuso.');
+        return;
+      }
+
+      db.tasks.unshift(savedTask);
+
+      const noteIdx = db.notes.findIndex(n => n.id === note.id);
+      if(noteIdx >= 0) db.notes[noteIdx] = updatedNote;
+
       render();
     };
   });
@@ -3628,7 +4209,7 @@ function bindMechanicLube(user){
   }
 
   if(btn){
-    btn.onclick = ()=>{
+    btn.onclick = async ()=>{
       if(!db.lube) db.lube = {};
 
       const assetId = safeTrim(document.getElementById('mLubeAsset')?.value || '');
@@ -3639,18 +4220,31 @@ function bindMechanicLube(user){
         return;
       }
 
-      if(!db.lube[assetId]) db.lube[assetId] = [];
-      db.lube[assetId].push({
+      const savedLube = await createLubeRecordInSupabase({
+        assetId,
         date: today(),
         by: (user.display||user.username),
         byId: user.id,
         note
       });
 
+      if(!savedLube){
+        alert('Nepavyko išsaugoti tepimo.');
+        return;
+      }
+
+      if(!db.lube[assetId]) db.lube[assetId] = [];
+      db.lube[assetId].push({
+        id: savedLube.id,
+        date: savedLube.date,
+        by: savedLube.by,
+        byId: savedLube.byId,
+        note: savedLube.note
+      });
+
       const inp = document.getElementById('mLubeNote');
       if(inp) inp.value = '';
 
-      saveDB(db);
       rebuildTable(collectAll().slice(0,60));
     };
   }
@@ -3695,20 +4289,27 @@ setInterval(async () => {
   const adminView = db.session?.adminView || '';
 
   const isTypingSensitive =
-    (currentRole === 'operator' && (opView === 'check' || opView === 'repair' || opView === 'history')) ||
+    (currentRole === 'operator' && (opView === 'check' || opView === 'repair' || opView === 'history' || opView === 'quicknote')) ||
     (currentRole === 'mechanic' && mechView === 'tasks') ||
     (currentRole === 'admin' && (adminView === 'tasks' || adminView === 'notes' || adminView === 'users' || adminView === 'equip' || adminView === 'grabs'));
 
-  const oldTasks = JSON.stringify(db.tasks || []);
-  const oldUsers = JSON.stringify(db.users || []);
-  const oldEquipment = JSON.stringify(db.equipment || []);
-  const oldGrabs = JSON.stringify(db.grabs || []);
+  const oldState = JSON.stringify({
+    tasks: db.tasks || [],
+    users: db.users || [],
+    equipment: db.equipment || [],
+    grabs: db.grabs || [],
+    notes: db.notes || [],
+    approvals: db.approvals || [],
+    completed: db.completed || [],
+    lube: db.lube || {},
+    dailyChecks: db.dailyChecks || []
+  });
 
   const usersFromCloud = await loadUsersFromSupabase();
   if(usersFromCloud.length) db.users = usersFromCloud;
 
   const tasksFromCloud = await loadTasksFromSupabase();
-  if(tasksFromCloud.length) db.tasks = tasksFromCloud;
+  db.tasks = tasksFromCloud || [];
 
   const equipmentFromCloud = await loadEquipmentFromSupabase();
   if(equipmentFromCloud.length) db.equipment = equipmentFromCloud;
@@ -3716,14 +4317,25 @@ setInterval(async () => {
   const grabsFromCloud = await loadGrabsFromSupabase();
   if(grabsFromCloud.length) db.grabs = grabsFromCloud;
 
-  saveDB_local(db);
+  db.notes = await loadNotesFromSupabase();
+  db.approvals = await loadApprovalsFromSupabase();
+  db.completed = await loadCompletedFromSupabase();
+  db.lube = await loadLubeFromSupabase();
+  db.dailyChecks = await loadDailyChecksFromSupabase();
 
-  const tasksChanged = oldTasks !== JSON.stringify(db.tasks || []);
-  const usersChanged = oldUsers !== JSON.stringify(db.users || []);
-  const equipmentChanged = oldEquipment !== JSON.stringify(db.equipment || []);
-  const grabsChanged = oldGrabs !== JSON.stringify(db.grabs || []);
+  const newState = JSON.stringify({
+    tasks: db.tasks || [],
+    users: db.users || [],
+    equipment: db.equipment || [],
+    grabs: db.grabs || [],
+    notes: db.notes || [],
+    approvals: db.approvals || [],
+    completed: db.completed || [],
+    lube: db.lube || {},
+    dailyChecks: db.dailyChecks || []
+  });
 
-  if((tasksChanged || usersChanged || equipmentChanged || grabsChanged) && !isTypingSensitive){
+  if(oldState !== newState && !isTypingSensitive){
     render();
   }
 }, 3000);
