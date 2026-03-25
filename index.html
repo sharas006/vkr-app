@@ -397,23 +397,29 @@ function bindTaskFileUploads(user){
     };
   });
 
-  document.querySelectorAll('[data-open-file]').forEach(link => {
-    link.onclick = async (e) => {
-      e.preventDefault();
+document.querySelectorAll('[data-open-file]').forEach(link => {
+  link.onclick = async (e) => {
+    e.preventDefault();
 
-      const id = link.getAttribute('data-open-file');
-      const file = (db.taskFiles || []).find(f => String(f.id) === String(id));
-      if(!file) return;
+    const id = link.getAttribute('data-open-file');
+    const file = (db.taskFiles || []).find(f => String(f.id) === String(id));
+    if(!file) return;
 
-      const url = await getTaskFileUrl(file.filePath);
-      if(!url){
-        alert('Nepavyko atidaryti failo.');
-        return;
-      }
+    const url = await getTaskFileUrl(file.filePath);
+    if(!url){
+      alert('Nepavyko atidaryti failo.');
+      return;
+    }
 
+    const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isPhone) {
+      window.location.href = url;
+    } else {
       window.open(url, '_blank');
-    };
-  });
+    }
+  };
+});
 }
 
 async function loadNotesFromSupabase(){
