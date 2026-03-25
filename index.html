@@ -266,7 +266,8 @@ async function loadTaskFilesFromSupabase(){
 
   return (data || []).map(f => ({
     id: f.id,
-    taskId: f.task_id,
+    taskId: f.task_id || null,
+    noteId: f.note_id || null,
     fileName: f.file_name || '',
     filePath: f.file_path || '',
     contentType: f.content_type || '',
@@ -276,44 +277,20 @@ async function loadTaskFilesFromSupabase(){
   }));
 }
 
-async function createTaskFileInSupabase(item){
-  const payload = {
-    task_id: item.taskId,
-    file_name: item.fileName,
-    file_path: item.filePath,
-    content_type: item.contentType || null,
-    uploaded_by_id: item.uploadedById || null,
-    uploaded_by_name: item.uploadedByName || ''
-  };
+async function uploadTaskFileToSupabase(file, target, user){
+  if(!file) return null;
 
-  const { data, error } = await sb
-    .from('task_files')
-    .insert([payload])
-    .select()
-    .single();
+  const taskId = target?.taskId || null;
+  const noteId = target?.noteId || null;
 
-  if(error){
-    console.error('Klaida kuriant task_files įrašą:', error);
+  if(!taskId && !noteId){
+    alert('Nenurodytas failo susiejimas.');
     return null;
   }
 
-  return {
-    id: data.id,
-    taskId: data.task_id,
-    fileName: data.file_name || '',
-    filePath: data.file_path || '',
-    contentType: data.content_type || '',
-    uploadedById: data.uploaded_by_id || null,
-    uploadedByName: data.uploaded_by_name || '',
-    createdAt: data.created_at || null
-  };
-}
-
-async function uploadTaskFileToSupabase(file, taskId, user){
-  if(!file) return null;
-
+  const ownerId = taskId || ('note_' + noteId);
   const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `${taskId}/${Date.now()}_${cleanName}`;
+  const path = `${ownerId}/${Date.now()}_${cleanName}`;
 
   const { error: uploadError } = await sb
     .storage
@@ -331,6 +308,7 @@ async function uploadTaskFileToSupabase(file, taskId, user){
 
   const saved = await createTaskFileInSupabase({
     taskId,
+    noteId,
     fileName: file.name,
     filePath: path,
     contentType: file.type || '',
@@ -339,6 +317,44 @@ async function uploadTaskFileToSupabase(file, taskId, user){
   });
 
   return saved;
+}
+
+async function createTaskFileInSupabase(item){
+  const payload = {
+    task_id: item.taskId || null,
+    note_id: item.noteId || null,
+    file_name: item.fileName,
+    file_path: item.filePath,
+    content_type: item.contentType || null,
+    uploaded_by_id: item.uploadedById || null,
+    uploaded_by_name: item.uploadedByName || ''
+  };
+
+  console.log('task_files payload:', payload);
+
+  const { data, error } = await sb
+    .from('task_files')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida kuriant task_files įrašą:', error);
+    alert('Nepavyko įrašyti failo į task_files lentelę: ' + (error.message || JSON.stringify(error)));
+    return null;
+  }
+
+  return {
+    id: data.id,
+    taskId: data.task_id || null,
+    noteId: data.note_id || null,
+    fileName: data.file_name || '',
+    filePath: data.file_path || '',
+    contentType: data.content_type || '',
+    uploadedById: data.uploaded_by_id || null,
+    uploadedByName: data.uploaded_by_name || '',
+    createdAt: data.created_at || null
+  };
 }
 
 async function getTaskFileUrl(filePath){
@@ -367,7 +383,7 @@ function bindTaskFileUploads(user){
         return;
       }
 
-      const saved = await uploadTaskFileToSupabase(file, taskId, user);
+      const saved = await uploadTaskFileToSupabase(file, { taskId }, user);
       if(!saved){
         alert('Nepavyko įkelti failo.');
         return;
@@ -498,7 +514,12 @@ async function updateNoteInSupabase(noteId, updates){
 }
 
 function taskFilesHtml(taskId){
-  const files = (db.taskFiles || []).filter(f => String(f.taskId) === String(taskId));
+  const task = (db.tasks || []).find(t => String(t.id) === String(taskId));
+
+  const files = (db.taskFiles || []).filter(f => {
+    return String(f.taskId) === String(taskId) ||
+           (task?.fromNoteId && String(f.noteId) === String(task.fromNoteId));
+  });
 
   if(!files.length){
     return '<div class="muted" style="font-size:12px">Failų nėra</div>';
@@ -517,7 +538,27 @@ function completedFilesHtml(taskId){
     return '<div class="muted" style="font-size:12px">Failų nėra</div>';
   }
 
-  const files = (db.taskFiles || []).filter(f => String(f.taskId) === String(taskId));
+  const task = (db.tasks || []).find(t => String(t.id) === String(taskId));
+
+  const files = (db.taskFiles || []).filter(f => {
+    return String(f.taskId) === String(taskId) ||
+           (task?.fromNoteId && String(f.noteId) === String(task.fromNoteId));
+  });
+
+  if(!files.length){
+    return '<div class="muted" style="font-size:12px">Failų nėra</div>';
+  }
+
+  return files.map(f => `
+    <div class="muted" style="font-size:12px;margin-top:4px">
+      📎 <a href="#" data-open-file="${f.id}">${escapeHtml(f.fileName)}</a>
+      ${f.uploadedByName ? `• įkėlė ${escapeHtml(f.uploadedByName)}` : ''}
+    </div>
+  `).join('');
+}
+
+function noteFilesHtml(noteId){
+  const files = (db.taskFiles || []).filter(f => String(f.noteId) === String(noteId));
 
   if(!files.length){
     return '<div class="muted" style="font-size:12px">Failų nėra</div>';
@@ -624,6 +665,42 @@ async function deleteUserFromSupabase(userId){
   }
 
   return true;
+}
+
+async function updateTaskFileInSupabase(fileId, updates){
+  const payload = {};
+
+  if(updates.taskId !== undefined) payload.task_id = updates.taskId;
+  if(updates.noteId !== undefined) payload.note_id = updates.noteId;
+  if(updates.fileName !== undefined) payload.file_name = updates.fileName;
+  if(updates.filePath !== undefined) payload.file_path = updates.filePath;
+  if(updates.contentType !== undefined) payload.content_type = updates.contentType;
+  if(updates.uploadedById !== undefined) payload.uploaded_by_id = updates.uploadedById;
+  if(updates.uploadedByName !== undefined) payload.uploaded_by_name = updates.uploadedByName;
+
+  const { data, error } = await sb
+    .from('task_files')
+    .update(payload)
+    .eq('id', fileId)
+    .select()
+    .single();
+
+  if(error){
+    console.error('Klaida atnaujinant task_files įrašą:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    taskId: data.task_id || null,
+    noteId: data.note_id || null,
+    fileName: data.file_name || '',
+    filePath: data.file_path || '',
+    contentType: data.content_type || '',
+    uploadedById: data.uploaded_by_id || null,
+    uploadedByName: data.uploaded_by_name || '',
+    createdAt: data.created_at || null
+  };
 }
 
 async function updateTaskInSupabase(taskId, updates){
@@ -2998,10 +3075,18 @@ function adminNotes(){
             ${escapeHtml(labelEquip(n.equipId))} • ${escapeHtml(n.date || '—')} • Paliko: ${escapeHtml(n.author || '—')}
           </div>
           <b>${escapeHtml(n.text)}</b>
-          <div class="muted" style="margin-top:4px;font-size:12px">
-            Statusas: ${statusLabel}
-          </div>
-          <div class="right" style="margin-top:10px">
+<div class="muted" style="margin-top:4px;font-size:12px">
+  Statusas: ${statusLabel}
+</div>
+
+<div style="margin-top:8px">
+  <div class="muted" style="font-size:12px"><b>Prikabinti failai / nuotraukos</b></div>
+  <div style="margin-top:4px">
+    ${noteFilesHtml(n.id)}
+  </div>
+</div>
+
+<div class="right" style="margin-top:10px">
             <button class="btn primary" data-nt="${n.id}" ${isTask ? 'disabled' : ''}>
               Paversti užduotimi
             </button>
@@ -3079,6 +3164,20 @@ function bindAdminNotes(user){
         db.tasks.unshift(savedTask);
         const noteIdx = db.notes.findIndex(n => n.id === note.id);
         if(noteIdx >= 0) db.notes[noteIdx] = updatedNote;
+
+for (const f of (db.taskFiles || [])) {
+  if(String(f.noteId) === String(note.id)){
+    const updatedFile = await updateTaskFileInSupabase(f.id, {
+      taskId: savedTask.id,
+      noteId: null
+    });
+
+    if(updatedFile){
+      const fileIdx = db.taskFiles.findIndex(x => String(x.id) === String(f.id));
+      if(fileIdx >= 0) db.taskFiles[fileIdx] = updatedFile;
+    }
+  }
+}
 
         document.getElementById('noteToTaskModal').classList.add('hidden');
         alert('Užduotis sukurta iš pastabos');
@@ -3719,6 +3818,11 @@ if (view === 'quicknote') {
         <textarea id="quickNoteText" placeholder="Pvz.: bėga tepalas ties kairiu cilindru, neveikia apšvietimas, girdisi pašalinis garsas..."></textarea>
       </div>
 
+      <div style="margin-top:10px">
+        <div class="muted">Pridėti nuotrauką / dokumentą (nebūtina)</div>
+        <input type="file" id="quickNoteFile">
+      </div>
+
       <div class="right" style="margin-top:10px">
         <button class="btn amber" id="saveQuickNote">Išsaugoti trūkumą</button>
       </div>
@@ -3730,8 +3834,20 @@ if (view === 'quicknote') {
     render();
   };
 
-  document.getElementById('saveQuickNote').onclick = async () => {
+let quickNoteSaving = false;
+
+document.getElementById('saveQuickNote').onclick = async () => {
+  if (quickNoteSaving) return;
+
+  const btn = document.getElementById('saveQuickNote');
+  quickNoteSaving = true;
+  btn.disabled = true;
+  btn.textContent = 'Saugoma...';
+
+  try {
     const txt = safeTrim(document.getElementById('quickNoteText')?.value || '');
+    const file = document.getElementById('quickNoteFile')?.files?.[0] || null;
+
     if (!txt) {
       alert('Įrašyk trūkumą.');
       return;
@@ -3742,7 +3858,8 @@ if (view === 'quicknote') {
       date: today(),
       text: txt,
       author: (user.display || user.username),
-      type: 'quick-note'
+      type: 'quick-note',
+      status: 'open'
     });
 
     if (!savedNote) {
@@ -3751,67 +3868,57 @@ if (view === 'quicknote') {
     }
 
     db.notes.unshift(savedNote);
+
+    if (file) {
+      const savedFile = await uploadTaskFileToSupabase(file, { noteId: savedNote.id }, user);
+
+      if (savedFile) {
+        if (!db.taskFiles) db.taskFiles = [];
+        db.taskFiles.unshift(savedFile);
+      } else {
+        alert('Pastaba išsaugota, failas į Storage įkeltas, bet nepavyko išsaugoti failo įrašo lentelėje task_files.');
+      }
+    }
+
     db.session.opView = 'home';
-    alert('Trūkumas užregistruotas.');
+    alert('Trūkumas išsaugotas pastabose.');
     render();
-  };
+
+  } finally {
+    quickNoteSaving = false;
+    btn.disabled = false;
+    btn.textContent = 'Išsaugoti trūkumą';
+  }
+};
 
   return;
 }
+
   /* ISTORIJA / PASTABOS */
   if (view === 'history') {
     body.innerHTML = `
-      <div class="card">
-        <button class="btn" id="opBack3">← Atgal</button>
-        <h3>ISTORIJA / PASTABOS</h3>
+    <div class="card">
+    <button class="btn" id="opBack3">← Atgal</button>
+    <h3>ISTORIJA / PASTABOS</h3>
 
-        <div class="row row-2" style="margin-top:10px">
-          <div>
-            <div class="muted">Nauja pastaba (nebūtina)</div>
-            <textarea id="newNote" placeholder="Trumpai..."></textarea>
-          </div>
-          <div class="right" style="align-items:flex-end">
-            <button class="btn primary" id="addNote">Pridėti</button>
-          </div>
-        </div>
+    <div class="muted" style="margin-top:4px;margin-bottom:10px">
+      Čia rodoma registruotų pastabų ir gedimų istorija.
+    </div>
 
-        <table style="margin-top:10px">
-          <thead>
-            <tr><th>Data</th><th>Gedimas / Pastaba</th><th>Kas paliko</th></tr>
-          </thead>
-          <tbody>${operatorNotesRows(eid)}</tbody>
-        </table>
-      </div>
-    `;
+    <table style="margin-top:10px">
+      <thead>
+        <tr><th>Data</th><th>Gedimas / Pastaba</th><th>Kas paliko</th></tr>
+      </thead>
+      <tbody>${operatorNotesRows(eid)}</tbody>
+    </table>
+  </div>
+`;
 
     document.getElementById('opBack3').onclick = () => {
       db.session.opView = 'home';
       saveDB(db);
       render();
     };
-
-document.getElementById('addNote').onclick = async () => {
-  const v = safeTrim(document.getElementById('newNote').value || '');
-  if (!v) return;
-
-  const savedNote = await createNoteInSupabase({
-    equipId: eid,
-    date: today(),
-    text: v,
-    author: (user.display || user.username),
-    type: 'note'
-  });
-
-  if (!savedNote) {
-    alert('Nepavyko išsaugoti pastabos.');
-    return;
-  }
-
-  db.notes.unshift(savedNote);
-  document.getElementById('newNote').value = '';
-  render();
-};
-
     return;
   }
 
@@ -4295,22 +4402,30 @@ if(create){
 function mechanicNotes(user){
   const list = (db.notes || []).filter(n => n.status !== 'task');
 
-
-  const rows = list.length ? list.map(n=>{
+  const rows = list.length ? list.map(n => {
     const isTask = n.status === 'task';
     const statusText = isTask ? 'Paversta į užduotį (vykdoma)' : 'Atvira pastaba';
 
     return `
       <div class="card danger">
         <div class="muted">
-          ${escapeHtml(labelEquip(n.equipId))} • ${escapeHtml(n.date || '—')} • Paliko: ${escapeHtml(n.authorName||n.author||'—')}
+          ${escapeHtml(labelEquip(n.equipId))} • ${escapeHtml(n.date || '—')} • Paliko: ${escapeHtml(n.authorName || n.author || '—')}
         </div>
+
         <b>${escapeHtml(n.text)}</b>
+
         <div class="muted" style="margin-top:4px;font-size:12px">
           Statusas: ${statusText}
         </div>
 
-        <div class="right" style="margin-top:6px">
+        <div style="margin-top:8px">
+          <div class="muted" style="font-size:12px"><b>Prikabinti failai / nuotraukos</b></div>
+          <div style="margin-top:4px">
+            ${noteFilesHtml(n.id)}
+          </div>
+        </div>
+
+        <div class="right" style="margin-top:10px">
           <button class="btn primary" data-note-task="${n.id}" ${isTask ? 'disabled' : ''}>
             Paversti užduotimi
           </button>
@@ -4377,6 +4492,13 @@ function bindMechanicNotes(user){
 
       const noteIdx = db.notes.findIndex(n => n.id === note.id);
       if(noteIdx >= 0) db.notes[noteIdx] = updatedNote;
+
+      (db.taskFiles || []).forEach(f => {
+  if(String(f.noteId) === String(note.id)){
+    f.taskId = savedTask.id;
+    f.noteId = null;
+  }
+});
 
       render();
     };
