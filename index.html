@@ -512,6 +512,25 @@ function taskFilesHtml(taskId){
   `).join('');
 }
 
+function completedFilesHtml(taskId){
+  if(!taskId){
+    return '<div class="muted" style="font-size:12px">Failų nėra</div>';
+  }
+
+  const files = (db.taskFiles || []).filter(f => String(f.taskId) === String(taskId));
+
+  if(!files.length){
+    return '<div class="muted" style="font-size:12px">Failų nėra</div>';
+  }
+
+  return files.map(f => `
+    <div class="muted" style="font-size:12px;margin-top:4px">
+      📎 <a href="#" data-open-file="${f.id}">${escapeHtml(f.fileName)}</a>
+      ${f.uploadedByName ? `• įkėlė ${escapeHtml(f.uploadedByName)}` : ''}
+    </div>
+  `).join('');
+}
+
 async function loadUsersFromSupabase(){
   const { data, error } = await sb
     .from('users')
@@ -941,34 +960,36 @@ async function loadCompletedFromSupabase(){
     return [];
   }
 
-  return (data || []).map(c => ({
-    id: c.id,
-    equipId: c.equip_id || '',
-    title: c.title || '',
-    date: c.date || '',
-    durationMin: c.duration_min || 0,
-    doneBy: c.done_by || '',
-    doneById: c.done_by_id || null,
-    role: c.role || '',
-    comment: c.comment || '',
-    helpers: Array.isArray(c.helpers) ? c.helpers : [],
-    progressLog: Array.isArray(c.progress_log) ? c.progress_log : []
-  }));
+return (data || []).map(c => ({
+  id: c.id,
+  taskId: c.task_id || null,
+  equipId: c.equip_id || '',
+  title: c.title || '',
+  date: c.date || '',
+  durationMin: c.duration_min || 0,
+  doneBy: c.done_by || '',
+  doneById: c.done_by_id || null,
+  role: c.role || '',
+  comment: c.comment || '',
+  helpers: Array.isArray(c.helpers) ? c.helpers : [],
+  progressLog: Array.isArray(c.progress_log) ? c.progress_log : []
+}));
 }
 
 async function createCompletedInSupabase(item){
-  const payload = {
-    equip_id: item.equipId,
-    title: item.title,
-    date: item.date || '',
-    duration_min: item.durationMin || 0,
-    done_by: item.doneBy || '',
-    done_by_id: item.doneById || null,
-    role: item.role || '',
-    comment: item.comment || '',
-    helpers: item.helpers || [],
-    progress_log: item.progressLog || []
-  };
+const payload = {
+  task_id: item.taskId || null,
+  equip_id: item.equipId,
+  title: item.title,
+  date: item.date || '',
+  duration_min: item.durationMin || 0,
+  done_by: item.doneBy || '',
+  done_by_id: item.doneById || null,
+  role: item.role || '',
+  comment: item.comment || '',
+  helpers: item.helpers || [],
+  progress_log: item.progressLog || []
+};
 
   const { data, error } = await sb
     .from('completed')
@@ -981,19 +1002,20 @@ async function createCompletedInSupabase(item){
     return null;
   }
 
-  return {
-    id: data.id,
-    equipId: data.equip_id || '',
-    title: data.title || '',
-    date: data.date || '',
-    durationMin: data.duration_min || 0,
-    doneBy: data.done_by || '',
-    doneById: data.done_by_id || null,
-    role: data.role || '',
-    comment: data.comment || '',
-    helpers: Array.isArray(data.helpers) ? data.helpers : [],
-    progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
-  };
+return {
+  id: data.id,
+  taskId: data.task_id || null,
+  equipId: data.equip_id || '',
+  title: data.title || '',
+  date: data.date || '',
+  durationMin: data.duration_min || 0,
+  doneBy: data.done_by || '',
+  doneById: data.done_by_id || null,
+  role: data.role || '',
+  comment: data.comment || '',
+  helpers: Array.isArray(data.helpers) ? data.helpers : [],
+  progressLog: Array.isArray(data.progress_log) ? data.progress_log : []
+};
 }
 
 async function loadLubeFromSupabase(){
@@ -1641,21 +1663,20 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
     };
   });
 
-  if(view==='users') bindAdminUsers();
-  if(view==='equip') bindAdminEquip();
-  if(view==='tasks') bindAdminTasks();
-  if(view==='waiting') bindAdminWaitingTasks();
-  if(view==='approvals'){
-  console.log('KVIEČIU bindAdminApprovals');
-  bindAdminApprovals();
-}
-  if(view==='notes') bindAdminNotes(user);
-  if(view==='password') bindChangePassword(user);
-  if(view==='lube') bindAdminLube();
-  if(view==='grabs') bindAdminGrabs();
-  if(view==='history') bindAdminHistory();
+if(view==='users') bindAdminUsers();
+if(view==='equip') bindAdminEquip();
+if(view==='tasks') bindAdminTasks();
+if(view==='waiting') bindAdminWaitingTasks();
+if(view==='approvals') bindAdminApprovals();
+if(view==='notes') bindAdminNotes(user);
+if(view==='password') bindChangePassword(user);
+if(view==='lube') bindAdminLube();
+if(view==='grabs') bindAdminGrabs();
+if(view==='history') bindAdminHistory();
 
-  if(view==='tasks') bindTaskFileUploads(user);
+if(view==='tasks') bindTaskFileUploads(user);
+if(view==='history') bindTaskFileUploads(user);
+if(view==='approvals') bindTaskFileUploads(user);
 }
 
 function adminDashboard(){
@@ -2764,32 +2785,82 @@ document.querySelectorAll('[data-wait]').forEach(b => {
 
 /* ADMIN – APPROVALS */
 function adminApprovals(){
-  console.log('adminApprovals render suveikė');
-  const rows=db.approvals.map(a=>`
-    <tr>
-      <td>${escapeHtml(a.date||'')}</td>
-      <td>${escapeHtml(labelEquip(a.equipId))}</td>
-      <td>${escapeHtml(a.issue||'')}</td>
-      <td>${escapeHtml(a.doneBy||'—')} (${escapeHtml(a.role||'—')})</td>
-      <td>${escapeHtml(fmtMinutes(a.durationMin||0))}</td>
-      <td>${escapeHtml(a.comment||'—')}</td>
-      <td>${(a.helpers||[]).length ? escapeHtml(a.helpers.map(userDisplay).join(', ')) : '—'}</td>
-<td class="right">
-<button class="btn green" onclick="handleApprovalOk('${a.id}')">Patvirtinti</button>
-<button class="btn red" onclick="handleApprovalReturn('${a.id}')">Grąžinti</button>
-</td>
-    </tr>
-  `).join('') || '<tr><td colspan="8" class="muted">Nėra laukiančių</td></tr>';
+  const cards = db.approvals.map(a => {
+    const task = a.taskId ? (db.tasks || []).find(t => String(t.id) === String(a.taskId)) : null;
+    const progressLog = Array.isArray(task?.progressLog) ? task.progressLog : [];
+    const filesHtml = task ? taskFilesHtml(task.id) : '<div class="muted" style="font-size:12px">Failų nėra</div>';
+
+    const progressHtml = progressLog.length ? `
+      <div style="margin-top:10px">
+        <div class="muted" style="font-size:12px"><b>Komentarų istorija</b></div>
+        <div style="margin-top:6px">
+          ${progressLog.map(p => `
+            <div class="card" style="padding:8px;margin-bottom:6px;background:#fafafa">
+              <div class="muted" style="font-size:12px">
+                ${escapeHtml(p.date || '')} • ${escapeHtml(p.byName || '—')}
+              </div>
+              <div>${escapeHtml(p.text || '')}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : `<div class="muted" style="margin-top:8px;font-size:12px">Komentarų istorijos nėra</div>`;
+
+    return `
+      <div class="card danger">
+        <div class="muted">${escapeHtml(a.date || '')} • ${escapeHtml(labelEquip(a.equipId))}</div>
+        <b>${escapeHtml(a.issue || '')}</b>
+
+        <div class="muted" style="margin-top:6px">
+          Atliko: ${escapeHtml(a.doneBy || '—')} (${escapeHtml(a.role || '—')})
+          • Trukmė: ${escapeHtml(fmtMinutes(a.durationMin || 0))}
+        </div>
+
+        ${a.initialComment ? `
+          <div style="margin-top:8px">
+            <div class="muted" style="font-size:12px"><b>Pradinis užduoties komentaras</b></div>
+            <div>${escapeHtml(a.initialComment)}</div>
+          </div>
+        ` : ''}
+
+        ${a.comment ? `
+          <div style="margin-top:8px">
+            <div class="muted" style="font-size:12px"><b>Galutinis mechaniko komentaras</b></div>
+            <div>${escapeHtml(a.comment)}</div>
+          </div>
+        ` : ''}
+
+        ${(a.helpers || []).length ? `
+          <div class="muted" style="font-size:12px;margin-top:6px">
+            Padėjo: ${escapeHtml(a.helpers.map(userDisplay).join(', '))}
+          </div>
+        ` : ''}
+
+        ${progressHtml}
+
+        <div style="margin-top:10px">
+          <div class="muted" style="font-size:12px"><b>Prikabinti failai / nuotraukos</b></div>
+          <div style="margin-top:4px">
+            ${filesHtml}
+          </div>
+        </div>
+
+        <div class="right" style="margin-top:10px">
+          <button class="btn green" onclick="handleApprovalOk('${a.id}')">Patvirtinti</button>
+          <button class="btn red" onclick="handleApprovalReturn('${a.id}')">Grąžinti</button>
+        </div>
+      </div>
+    `;
+  }).join('') || '<div class="card"><div class="muted">Nėra laukiančių</div></div>';
 
   return `
     <div class="card">
       <h3 style="margin-top:0">Patvirtinimai</h3>
-      <table>
-        <thead><tr><th>Data</th><th>Technika</th><th>Darbas</th><th>Atliko</th><th>Laikas</th><th>Komentaras</th><th>Padėjo</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+    </div>
+    ${cards}
+  `;
 }
+
 function bindAdminApprovals(){
 
 }
@@ -2812,17 +2883,18 @@ async function handleApprovalOk(id){
   }
 
   const savedCompleted = await createCompletedInSupabase({
-    equipId: a.equipId,
-    title: a.issue,
-    date: a.date,
-    durationMin: a.durationMin || 0,
-    doneBy: a.doneBy,
-    doneById: a.doneById,
-    role: (a.role === 'mechanikas' ? 'mechanic' : 'operator'),
-    comment: a.comment || '',
-    helpers: a.helpers || [],
-    progressLog: progressLog
-  });
+  taskId: a.taskId || null,
+  equipId: a.equipId,
+  title: a.issue,
+  date: a.date,
+  durationMin: a.durationMin || 0,
+  doneBy: a.doneBy,
+  doneById: a.doneById,
+  role: (a.role === 'mechanikas' ? 'mechanic' : 'operator'),
+  comment: a.comment || '',
+  helpers: a.helpers || [],
+  progressLog: progressLog
+});
 
   if(!savedCompleted){
     alert('Nepavyko perkelti į istoriją.');
@@ -3028,22 +3100,41 @@ function historyCards(items){
         Atliko: ${escapeHtml(c.doneBy||'—')} (${escapeHtml(c.role||'—')})
         ${c.durationMin ? ' • Trukmė: '+escapeHtml(fmtMinutes(c.durationMin)) : ''}
       </div>
-      ${c.comment ? `<div style="margin-top:4px">${escapeHtml(c.comment||'')}</div>` : ''}
+      ${c.comment ? `<div style="margin-top:6px"><b>Galutinis komentaras:</b> ${escapeHtml(c.comment||'')}</div>` : ''}
       ${(c.helpers||[]).length
         ? `<div class="muted" style="font-size:12px;margin-top:2px">Padėjo: ${escapeHtml(c.helpers.map(userDisplay).join(', '))}</div>`
         : ''
       }
     `;
-    const prog = c.progressLog || [];
-    const progHtml = prog.length ? `
-      <div class="muted" style="margin-top:6px;font-size:12px">
-        Komentarų istorija:
-        ${prog.map(p=>`
-          <div>• ${escapeHtml(p.date||'')} — ${escapeHtml(p.byName||'')} : ${escapeHtml(p.text||'')}</div>
-        `).join('')}
+
+    const prog = Array.isArray(c.progressLog) ? c.progressLog : [];
+
+    const progressHtml = prog.length ? `
+      <div style="margin-top:10px">
+        <div class="muted" style="font-size:12px"><b>Pilna komentarų istorija</b></div>
+        <div style="margin-top:6px">
+          ${prog.map(p=>`
+            <div class="card" style="padding:8px;margin-bottom:6px;background:#fafafa">
+              <div class="muted" style="font-size:12px">
+                ${escapeHtml(p.date||'')} • ${escapeHtml(p.byName||'—')}
+              </div>
+              <div>${escapeHtml(p.text||'')}</div>
+            </div>
+          `).join('')}
+        </div>
       </div>
-    ` : '';
-    return `<div class="card">${baseInfo}${progHtml}</div>`;
+    ` : `<div class="muted" style="margin-top:8px;font-size:12px">Komentarų istorijos nėra</div>`;
+
+    const filesHtml = `
+      <div style="margin-top:10px">
+        <div class="muted" style="font-size:12px"><b>Prikabinti failai / nuotraukos</b></div>
+        <div style="margin-top:4px">
+          ${completedFilesHtml(c.taskId)}
+        </div>
+      </div>
+    `;
+
+    return `<div class="card">${baseInfo}${progressHtml}${filesHtml}</div>`;
   }).join('');
 }
 
