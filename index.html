@@ -1239,6 +1239,8 @@ async function updateGrabInSupabase(grabId, updates){
 async function boot(){
   db = seedDB();
 
+  await restoreSessionFromAuth();
+
   const usersFromCloud = await loadUsersFromSupabase();
   if(usersFromCloud.length) db.users = usersFromCloud;
 
@@ -1473,49 +1475,126 @@ function labelEquip(eid){
 }
 
 function setSessionUser(userId){ db.session.userId=userId; saveDB(db); }
-function logout(){ setSessionUser(null); render(); }
+
+async function logout(){
+  await sb.auth.signOut();
+  db.session.userId = null;
+  db.session.currentUser = null;
+  saveDB_local(db);
+  render();
+}
+
+async function restoreSessionFromAuth(){
+  const { data, error } = await sb.auth.getUser();
+  if(error || !data?.user) return;
+
+  const authUser = data.user;
+
+  const { data: profile, error: profileError } = await sb
+    .from('users')
+    .select('*')
+    .eq('auth_user_id', authUser.id)
+    .single();
+
+  if(profileError || !profile) return;
+
+  db.session.userId = profile.id;
+  db.session.currentUser = {
+    id: profile.id,
+    authUserId: authUser.id,
+    username: profile.username,
+    display: profile.name || profile.username,
+    role: profile.role,
+    equipId: profile.equip_id || null,
+    email: authUser.email || ''
+  };
+
+  const existingIdx = (db.users || []).findIndex(u => u.id === profile.id);
+  const normalizedUser = {
+    id: profile.id,
+    authUserId: authUser.id,
+    username: profile.username,
+    display: profile.name || profile.username,
+    role: profile.role,
+    equipId: profile.equip_id || null,
+    email: authUser.email || ''
+  };
+
+  if(existingIdx >= 0){
+    db.users[existingIdx] = normalizedUser;
+  } else {
+    db.users.push(normalizedUser);
+  }
+}
 
 /* auth */
 async function doLogin(username, password){
   try{
-    const { data, error } = await sb
+    const { data: loginRow, error: loginLookupError } = await sb
       .from('users')
-      .select('*')
+      .select('id, username, name, role, equip_id, auth_user_id, email_login')
       .eq('username', username)
-      .eq('password', password)
       .maybeSingle();
 
-    if(error){
-      console.error('Login klaida:', error);
-      return { ok:false, msg:'DB klaida prisijungiant.' };
+    if(loginLookupError){
+      console.error('Login lookup klaida:', loginLookupError);
+      return { ok:false, msg:'Nepavyko rasti vartotojo.' };
     }
 
-    if(!data){
-      return { ok:false, msg:'Neteisingas vartotojas arba slaptažodis.' };
+    if(!loginRow || !loginRow.email_login){
+      return { ok:false, msg:'Nerastas vartotojas arba nepriskirtas el. paštas.' };
     }
 
-const normalizedUser = {
-  id: data.id,
-  username: data.username,
-  display: data.name || data.username,
-  role: data.role,
-  password: data.password,
-  equipId: data.equip_id || null
-};
+    const { data: authData, error: authError } = await sb.auth.signInWithPassword({
+      email: loginRow.email_login,
+      password
+    });
 
-db.session.userId = normalizedUser.id;
-db.session.currentUser = normalizedUser;
+    if(authError){
+      console.error('Login klaida:', authError);
+      return { ok:false, msg:'Neteisingi prisijungimo duomenys.' };
+    }
 
-const existingIdx = (db.users || []).findIndex(u => u.id === normalizedUser.id);
-if(existingIdx >= 0){
-  db.users[existingIdx] = normalizedUser;
-} else {
-  db.users.push(normalizedUser);
-}
+    const authUser = authData?.user;
+    if(!authUser){
+      return { ok:false, msg:'Nepavyko gauti vartotojo.' };
+    }
 
-saveDB_local(db);
+    const { data: profile, error: profileError } = await sb
+      .from('users')
+      .select('*')
+      .eq('auth_user_id', authUser.id)
+      .single();
 
-    return { ok:true, user:data };
+    if(profileError || !profile){
+      console.error('Profilio klaida:', profileError);
+      await sb.auth.signOut();
+      return { ok:false, msg:'Nerastas vartotojo profilis.' };
+    }
+
+    const normalizedUser = {
+      id: profile.id,
+      authUserId: authUser.id,
+      username: profile.username,
+      display: profile.name || profile.username,
+      role: profile.role,
+      equipId: profile.equip_id || null,
+      email: profile.email_login || authUser.email || ''
+    };
+
+    db.session.userId = normalizedUser.id;
+    db.session.currentUser = normalizedUser;
+
+    const existingIdx = (db.users || []).findIndex(u => u.id === normalizedUser.id);
+    if(existingIdx >= 0){
+      db.users[existingIdx] = normalizedUser;
+    } else {
+      db.users.push(normalizedUser);
+    }
+
+    saveDB_local(db);
+    return { ok:true, user: normalizedUser };
+
   }catch(err){
     console.error(err);
     return { ok:false, msg:'Nepavyko prisijungti.' };
@@ -1627,18 +1706,10 @@ function renderLogin(){
       <h2 style="margin:0 0 6px 0">VKR • Prisijungimas</h2>
       <div class="muted">Prisijunk, ir atsidarys tavo rolės langas.</div>
       <div class="row" style="margin-top:12px">
-        <div><div class="muted">Vartotojas</div><input id="lgUser" placeholder="pvz. admin"></div>
+        <div><div class="muted">Vartotojas</div><input id="lgUser" placeholder="pvz. petras"></div>
         <div><div class="muted">Slaptažodis</div><input id="lgPass" type="password" placeholder="••••••"></div>
         <div class="right"><button class="btn primary" id="lgBtn">Prisijungti</button></div>
         <div class="muted" style="font-size:12px" id="lgMsg"></div>
-        <div class="card" style="background:#fff;border-style:dashed">
-          <div class="muted" style="font-size:12px">Demo:</div>
-          <div style="font-size:13px">
-            <div><b>admin</b> / 123</div>
-            <div><b>sarunas</b> / 123</div>
-            <div><b>vaidotas</b> / 123</div>
-          </div>
-        </div>
       </div>
     </div>`;
 }
