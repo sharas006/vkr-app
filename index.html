@@ -594,8 +594,9 @@ return (data || []).map(u => ({
   username: u.username,
   display: u.name || u.username,
   role: u.role,
-  password: u.password,
-  equipId: u.equip_id || null
+  equipId: u.equip_id || null,
+  authUserId: u.auth_user_id || null,
+  email: u.email_login || ''
 }));
 }
 
@@ -604,7 +605,6 @@ async function updateUserInSupabase(userId, updates){
   if(updates.display !== undefined) payload.name = updates.display;
   if(updates.username !== undefined) payload.username = updates.username;
   if(updates.role !== undefined) payload.role = updates.role;
-  if(updates.password !== undefined) payload.password = updates.password;
   if(updates.equipId !== undefined) payload.equip_id = updates.equipId;
 
   const { data, error } = await sb
@@ -619,14 +619,15 @@ async function updateUserInSupabase(userId, updates){
     return null;
   }
 
-  return {
-    id: data.id,
-    username: data.username,
-    display: data.name || data.username,
-    role: data.role,
-    password: data.password,
-    equipId: data.equip_id || null
-  };
+return {
+  id: data.id,
+  username: data.username,
+  display: data.name || data.username,
+  role: data.role,
+  equipId: data.equip_id || null,
+  authUserId: data.auth_user_id || null,
+  email: data.email_login || ''
+};
 }
 
 async function createUserInSupabase(user){
@@ -634,7 +635,6 @@ async function createUserInSupabase(user){
     name: user.display,
     username: user.username,
     role: user.role,
-    password: user.password,
     equip_id: user.equipId || null
   };
 
@@ -654,7 +654,6 @@ async function createUserInSupabase(user){
     username: data.username,
     display: data.name || data.username,
     role: data.role,
-    password: data.password,
     equipId: data.equip_id || null
   };
 }
@@ -1614,8 +1613,7 @@ function changePasswordUI(user){
         <h3 style="margin:0">Slaptažodis</h3>
         <span class="pill">${escapeHtml(user.display||user.username)} • ${escapeHtml(user.role)}</span>
       </div>
-      <div class="row row-3" style="margin-top:8px">
-        <div><div class="muted">Dabartinis</div><input id="pwOld" type="password"></div>
+      <div class="row row-2" style="margin-top:8px">
         <div><div class="muted">Naujas</div><input id="pwNew" type="password"></div>
         <div><div class="muted">Pakartoti</div><input id="pwNew2" type="password"></div>
       </div>
@@ -1630,19 +1628,13 @@ function bindChangePassword(user){
   if(!b) return;
 
   b.onclick = async ()=>{
-    const oldv = safeTrim(document.getElementById('pwOld').value);
     const nv1 = safeTrim(document.getElementById('pwNew').value);
     const nv2 = safeTrim(document.getElementById('pwNew2').value);
     const msg = document.getElementById('pwMsg');
     msg.textContent = '';
 
-    if(oldv !== user.password){
-      msg.textContent = 'Dabartinis slaptažodis neteisingas.';
-      return;
-    }
-
-    if(!nv1 || nv1.length < 4){
-      msg.textContent = 'Naujas slaptažodis per trumpas (min 4).';
+    if(!nv1 || nv1.length < 6){
+      msg.textContent = 'Naujas slaptažodis per trumpas (min 6).';
       return;
     }
 
@@ -1651,20 +1643,13 @@ function bindChangePassword(user){
       return;
     }
 
-    const updatedUser = await updateUserInSupabase(user.id, {
+    const { error } = await sb.auth.updateUser({
       password: nv1
     });
 
-    if(!updatedUser){
-      msg.textContent = 'Nepavyko pakeisti slaptažodžio.';
+    if(error){
+      msg.textContent = 'Nepavyko pakeisti slaptažodžio: ' + error.message;
       return;
-    }
-
-    const idx = db.users.findIndex(x => x.id === user.id);
-    if(idx >= 0) db.users[idx] = updatedUser;
-
-    if(db.session?.currentUser?.id === user.id){
-      db.session.currentUser = updatedUser;
     }
 
     msg.textContent = 'Slaptažodis pakeistas.';
@@ -2169,6 +2154,7 @@ function adminUsers(){
   <div><div class="muted">Vardas (rodyti)</div><input id="uDisplay" placeholder="pvz. Rolandas Paškevičius"></div>
 
   <div><div class="muted">Username</div><input id="uUsername" placeholder="pvz. rolandas"></div>
+  <div><div class="muted">El. paštas</div><input id="uEmail" type="email" placeholder="pvz. vardas.pavarde@wsy.lt"></div>
 
   <div><div class="muted">Rolė</div>
     <select id="uRole">
@@ -2204,11 +2190,13 @@ function bindAdminUsers(){
   const pEl=document.getElementById('uPass');
   const eqEl=document.getElementById('uEquip');
   const msg=document.getElementById('uMsg');
+  const emEl=document.getElementById('uEmail');
 
-  function clear(){
+function clear(){
   idEl.value='';
   dEl.value='';
   unEl.value='';
+  if(emEl) emEl.value='';
   rEl.value='operator';
   pEl.value='';
   if(eqEl) eqEl.value='';
@@ -2252,20 +2240,38 @@ const updatedUser = await updateUserInSupabase(id, {
   db.users[idx] = updatedUser;
 
 }else{
-const createdUser = await createUserInSupabase({
-  display,
-  username,
-  role,
-  password: pass,
-  equipId: role === 'operator' ? (equipId || null) : null
-});
+  const email = safeTrim(emEl ? emEl.value : '');
 
-  if(!createdUser){
-    msg.textContent='Nepavyko sukurti naudotojo Supabase.';
+  if(!email){
+    msg.textContent='Reikia el. pašto.';
     return;
   }
 
-  db.users.push(createdUser);
+  try{
+    const result = await createUserViaFunction({
+      username,
+      name: display,
+      role,
+      email,
+      password: pass,
+      equipId: role === 'operator' ? (equipId || null) : null
+    });
+
+    const createdUser = {
+      id: result.user.id,
+      username: result.user.username,
+      display: result.user.name || result.user.username,
+      role: result.user.role,
+      equipId: result.user.equip_id || null,
+      authUserId: result.user.auth_user_id,
+      email: result.user.email_login || ''
+    };
+
+    db.users.push(createdUser);
+  }catch(err){
+    msg.textContent = err?.message || 'Nepavyko sukurti naudotojo.';
+    return;
+  }
 }
 
 saveDB(db);
@@ -3080,6 +3086,51 @@ async function handleApprovalOk(id){
   db.approvals.splice(idx, 1);
   db.completed.unshift(savedCompleted);
   render();
+}
+
+async function createUserViaFunction(payload){
+  const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+
+  if(sessionError){
+    throw new Error(sessionError.message || 'Nepavyko gauti sesijos');
+  }
+
+  const accessToken = sessionData?.session?.access_token;
+  if(!accessToken){
+    throw new Error('Nėra aktyvios sesijos');
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify(payload)
+  });
+
+  let body = null;
+  try{
+    body = await res.json();
+  }catch(_e){
+    body = null;
+  }
+
+  if(!res.ok){
+    console.error('Function HTTP klaida:', res.status, body);
+    throw new Error(
+      body?.error ||
+      body?.message ||
+      `Function klaida (${res.status})`
+    );
+  }
+
+  if(body?.error){
+    throw new Error(body.error);
+  }
+
+  return body;
 }
 
 async function handleApprovalReturn(id){
