@@ -657,6 +657,50 @@ async function createUserInSupabase(user){
     equipId: data.equip_id || null
   };
 }
+async function deleteUserViaFunction(userId){
+  const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+
+  if(sessionError){
+    throw new Error(sessionError.message || 'Nepavyko gauti sesijos');
+  }
+
+  const accessToken = sessionData?.session?.access_token;
+  if(!accessToken){
+    throw new Error('Nėra aktyvios sesijos');
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ userId })
+  });
+
+  let body = null;
+  try{
+    body = await res.json();
+  }catch(_e){
+    body = null;
+  }
+
+  if(!res.ok){
+    console.error('Delete user function klaida:', res.status, body);
+    throw new Error(
+      body?.error ||
+      body?.message ||
+      `Delete user function klaida (${res.status})`
+    );
+  }
+
+  if(body?.error){
+    throw new Error(body.error);
+  }
+
+  return body;
+}
 
 async function deleteUserFromSupabase(userId){
   const { error } = await sb
@@ -2301,9 +2345,10 @@ document.querySelectorAll('[data-del-user]').forEach(b=>{
 
     if(!confirm('Trinti ' + (u.display||u.username) + '?')) return;
 
-    const ok = await deleteUserFromSupabase(id);
-    if(!ok){
-      alert('Nepavyko ištrinti naudotojo iš Supabase');
+    try{
+      await deleteUserViaFunction(id);
+    }catch(err){
+      alert(err?.message || 'Nepavyko ištrinti naudotojo');
       return;
     }
 
