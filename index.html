@@ -204,7 +204,70 @@
   opacity:.8;
 }
 
-  </style>
+.taskCard{
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:#fff;
+  margin-bottom:10px;
+  overflow:hidden;
+}
+.taskCard.danger{
+  background:#fff7f7;
+  border-color:#fecaca;
+}
+.taskHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:10px 14px;
+  cursor:pointer;
+}
+.taskHeadLeft{
+  flex:1;
+}
+.taskTitle{
+  font-weight:700;
+  font-size:18px;
+  margin:4px 0;
+}
+.taskMeta{
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.45;
+}
+.taskSummary{
+  margin-top:6px;
+  font-size:13px;
+  color:#374151;
+}
+.taskRight{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  gap:8px;
+  min-width:auto;
+  white-space:nowrap;
+}
+.taskBadge{
+  display:inline-block;
+  padding:3px 9px;
+  border-radius:999px;
+  font-size:12px;
+  border:1px solid #ddd;
+  background:#fff;
+  line-height:1.2;
+}
+.taskCaret{
+  font-size:14px;
+  opacity:.8;
+}
+.taskBody{
+  border-top:1px solid var(--border);
+  padding:14px;
+}
+
+</style>
 </head>
 <body>
 <div class="container" id="app"></div>
@@ -433,30 +496,32 @@ async function loadNotesFromSupabase(){
     return [];
   }
 
-  return (data || []).map(n => ({
-    id: n.id,
-    equipId: n.equip_id,
-    date: n.date || '',
-    text: n.text || '',
-    author: n.author || '',
-    type: n.type || '',
-    status: n.status || '',
-    linkedTaskId: n.linked_task_id || null,
-    checklistPoint: n.checklist_point || ''
-  }));
+return (data || []).map(n => ({
+  id: n.id,
+  equipId: n.equip_id,
+  date: n.date || '',
+  text: n.text || '',
+  author: n.author || '',
+  authorId: n.author_id || null,
+  type: n.type || '',
+  status: n.status || '',
+  linkedTaskId: n.linked_task_id || null,
+  checklistPoint: n.checklist_point || ''
+}));
 }
 
 async function createNoteInSupabase(note){
-  const payload = {
-    equip_id: note.equipId,
-    date: note.date || '',
-    text: note.text || '',
-    author: note.author || '',
-    type: note.type || '',
-    status: note.status || null,
-    linked_task_id: note.linkedTaskId || null,
-    checklist_point: note.checklistPoint || null
-  };
+const payload = {
+  equip_id: note.equipId,
+  date: note.date || '',
+  text: note.text || '',
+  author: note.author || '',
+  author_id: note.authorId || null,
+  type: note.type || '',
+  status: note.status || null,
+  linked_task_id: note.linkedTaskId || null,
+  checklist_point: note.checklistPoint || null
+};
 
   const { data, error } = await sb
     .from('notes')
@@ -470,16 +535,17 @@ async function createNoteInSupabase(note){
   }
 
   return {
-    id: data.id,
-    equipId: data.equip_id,
-    date: data.date || '',
-    text: data.text || '',
-    author: data.author || '',
-    type: data.type || '',
-    status: data.status || '',
-    linkedTaskId: data.linked_task_id || null,
-    checklistPoint: data.checklist_point || ''
-  };
+  id: data.id,
+  equipId: data.equip_id,
+  date: data.date || '',
+  text: data.text || '',
+  author: data.author || '',
+  authorId: data.author_id || null,
+  type: data.type || '',
+  status: data.status || '',
+  linkedTaskId: data.linked_task_id || null,
+  checklistPoint: data.checklist_point || ''
+};
 }
 
 async function updateNoteInSupabase(noteId, updates){
@@ -489,6 +555,7 @@ async function updateNoteInSupabase(noteId, updates){
   if(updates.date !== undefined) payload.date = updates.date;
   if(updates.text !== undefined) payload.text = updates.text;
   if(updates.author !== undefined) payload.author = updates.author;
+  if(updates.authorId !== undefined) payload.author_id = updates.authorId;
   if(updates.type !== undefined) payload.type = updates.type;
   if(updates.status !== undefined) payload.status = updates.status;
   if(updates.linkedTaskId !== undefined) payload.linked_task_id = updates.linkedTaskId;
@@ -506,17 +573,18 @@ async function updateNoteInSupabase(noteId, updates){
     return null;
   }
 
-  return {
-    id: data.id,
-    equipId: data.equip_id,
-    date: data.date || '',
-    text: data.text || '',
-    author: data.author || '',
-    type: data.type || '',
-    status: data.status || '',
-    linkedTaskId: data.linked_task_id || null,
-    checklistPoint: data.checklist_point || ''
-  };
+return {
+  id: data.id,
+  equipId: data.equip_id,
+  date: data.date || '',
+  text: data.text || '',
+  author: data.author || '',
+  authorId: data.author_id || null,
+  type: data.type || '',
+  status: data.status || '',
+  linkedTaskId: data.linked_task_id || null,
+  checklistPoint: data.checklist_point || ''
+};
 }
 
 function taskFilesHtml(taskId){
@@ -1401,6 +1469,37 @@ function escapeHtml(s){
     .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
     .replaceAll('"','&quot;').replaceAll("'","&#039;");
 }
+
+function isTaskExpanded(key){
+  if(!db.session) db.session = {};
+  if(!db.session.taskExpanded) db.session.taskExpanded = {};
+  return !!db.session.taskExpanded[key];
+}
+
+function toggleTaskExpanded(key){
+  if(!db.session) db.session = {};
+  if(!db.session.taskExpanded) db.session.taskExpanded = {};
+  db.session.taskExpanded[key] = !db.session.taskExpanded[key];
+  saveDB_local(db);
+  render();
+}
+
+function taskShortSummary(t){
+  const comments = Array.isArray(t.progressLog) ? t.progressLog.length : 0;
+
+  const files = (db.taskFiles || []).filter(f => {
+    return String(f.taskId) === String(t.id) ||
+      (t?.fromNoteId && String(f.noteId) === String(t.fromNoteId));
+  }).length;
+
+  const bits = [];
+  if(t.initialComment) bits.push('yra pradinis komentaras');
+  if(comments) bits.push(`komentarų: ${comments}`);
+  if(files) bits.push(`failų: ${files}`);
+
+  return bits.length ? bits.join(' • ') : 'be komentarų ir failų';
+}
+
 function ensureAdminUiState(){
   if(!db.session) db.session = {};
   if(!db.session.adminCollapsed) db.session.adminCollapsed = {};
@@ -1453,12 +1552,14 @@ function seedDB(){
 const db = {
   version: 1,
   session: {
-    userId: null,
-    currentUser: null,
-    adminView:'dashboard',
-    opView:'home',
-    mechView:'tasks',
-    opEquipId:null
+userId: null,
+  currentUser: null,
+  adminView:'dashboard',
+  opView:'home',
+  mechView:'tasks',
+  opEquipId:null,
+  taskExpanded:{}
+
   },
   users: [],
   equipment: [
@@ -1813,6 +1914,7 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
   Patvirtinimai ${approvalsCount ? `(${approvalsCount})` : ''}
 </button>
         ${tabBtn('notes','Pastabos',view)}
+        ${tabBtn('checks','Patikrų registras',view)}
         ${tabBtn('users','Naudotojai',view)}
         ${tabBtn('equip','Technika',view)}
         ${tabBtn('grabs','Greiferiai',view)}
@@ -1828,6 +1930,7 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
   else if(view==='waiting') mid = adminWaitingTasks();
   else if(view==='approvals') mid = adminApprovals();
   else if(view==='notes') mid = adminNotes(user);
+  else if(view==='checks') mid = adminChecksRegistry();
   else if(view==='users') mid = adminUsers();
   else if(view==='equip') mid = adminEquip();
   else if(view==='grabs') mid = adminGrabs();
@@ -1852,6 +1955,7 @@ if(view==='tasks') bindAdminTasks();
 if(view==='waiting') bindAdminWaitingTasks();
 if(view==='approvals') bindAdminApprovals();
 if(view==='notes') bindAdminNotes(user);
+if(view==='checks') bindAdminChecksRegistry();
 if(view==='password') bindChangePassword(user);
 if(view==='lube') bindAdminLube();
 if(view==='grabs') bindAdminGrabs();
@@ -2178,10 +2282,11 @@ function adminUsers(){
       <td>${escapeHtml(u.display||'')}</td>
       <td><code>${escapeHtml(u.username)}</code></td>
       <td>${escapeHtml(u.role)}</td>
-      <td class="right">
-        <button class="btn" data-edit-user="${u.id}">Keisti</button>
-        ${u.id==='u-admin'?'':`<button class="btn red" data-del-user="${u.id}">Trinti</button>`}
-      </td>
+<td class="right">
+  <button class="btn" data-edit-user="${u.id}">Keisti</button>
+  <button class="btn" data-reset-user-password="${u.id}">Slaptažodis</button>
+  ${u.username==='admin' ? '' : `<button class="btn red" data-del-user="${u.id}">Trinti</button>`}
+</td>
     </tr>`).join('') || '<tr><td colspan="4" class="muted">Nėra</td></tr>';
 
   return `
@@ -2337,6 +2442,30 @@ if(eqEl) eqEl.value = u.equipId || '';
 msg.textContent='Redaguoji: '+(u.display||u.username);
     };
   });
+  document.querySelectorAll('[data-reset-user-password]').forEach(b=>{
+  b.onclick = async ()=>{
+    const id = b.getAttribute('data-reset-user-password');
+    const u = db.users.find(x=>x.id===id);
+    if(!u) return;
+
+    const newPassword = prompt('Įvesk naują slaptažodį vartotojui ' + (u.display || u.username) + ':');
+    if(newPassword === null) return;
+
+    const cleanPassword = safeTrim(newPassword);
+    if(!cleanPassword){
+      alert('Slaptažodis neįvestas.');
+      return;
+    }
+
+    try{
+      await resetUserPasswordViaFunction(id, cleanPassword);
+      alert('Slaptažodis pakeistas.');
+    }catch(err){
+      alert(err?.message || 'Nepavyko pakeisti slaptažodžio.');
+    }
+  };
+});
+
 document.querySelectorAll('[data-del-user]').forEach(b=>{
   b.onclick = async ()=>{
     const id = b.getAttribute('data-del-user');
@@ -3071,6 +3200,51 @@ function bindAdminApprovals(){
 
 }
 
+async function resetUserPasswordViaFunction(userId, newPassword){
+  const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+
+  if(sessionError){
+    throw new Error(sessionError.message || 'Nepavyko gauti sesijos');
+  }
+
+  const accessToken = sessionData?.session?.access_token;
+  if(!accessToken){
+    throw new Error('Nėra aktyvios sesijos');
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/reset-user-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      'apikey': SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({ userId, newPassword })
+  });
+
+  let body = null;
+  try{
+    body = await res.json();
+  }catch(_e){
+    body = null;
+  }
+
+  if(!res.ok){
+    console.error('Reset password function klaida:', res.status, body);
+    throw new Error(
+      body?.error ||
+      body?.message ||
+      `Reset password function klaida (${res.status})`
+    );
+  }
+
+  if(body?.error){
+    throw new Error(body.error);
+  }
+
+  return body;
+}
+
 async function handleApprovalOk(id){
   const idx = db.approvals.findIndex(x => String(x.id) === String(id));
   if(idx < 0){
@@ -3275,6 +3449,199 @@ function adminNotes(){
     </div>
     ${rows || `<div class="muted">Pastabų nėra</div>`}
   `;
+}
+
+function adminChecksRegistry(){
+  const eqOpts = (db.equipment || [])
+    .map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
+    .join('');
+
+  const opOpts = (db.users || [])
+    .filter(u => u.role === 'operator')
+    .map(u=>`<option value="${u.id}">${escapeHtml(u.display || u.username)}</option>`)
+    .join('');
+
+  const rows = buildChecksRegistryRows();
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Operatorių patikrų registras</h3>
+
+      <div class="row row-4" style="margin-bottom:8px">
+        <div>
+          <div class="muted">Technika</div>
+          <select id="crEquip">
+            <option value="">Visa technika</option>
+            ${eqOpts}
+          </select>
+        </div>
+
+        <div>
+          <div class="muted">Operatorius</div>
+          <select id="crOperator">
+            <option value="">Visi operatoriai</option>
+            ${opOpts}
+          </select>
+        </div>
+
+        <div>
+          <div class="muted">Nuo datos</div>
+          <input type="date" id="crFrom">
+        </div>
+
+        <div>
+          <div class="muted">Iki datos</div>
+          <input type="date" id="crTo">
+        </div>
+      </div>
+
+      <div class="right" style="margin-bottom:8px">
+        <button class="btn" id="crClear" type="button">Išvalyti</button>
+        <button class="btn primary" id="crApply" type="button">Filtruoti</button>
+      </div>
+
+      <div id="crBody">
+        ${renderChecksRegistryRows(rows)}
+      </div>
+    </div>
+  `;
+}
+
+function buildChecksRegistryRows(){
+  const checks = (db.dailyChecks || []).slice();
+
+  return checks
+    .map(ch => {
+      const relatedNotes = (db.notes || []).filter(n =>
+        n.type === 'check' &&
+        n.date === ch.date &&
+        n.equipId === ch.equipId &&
+        (
+          (n.authorId && ch.userId && String(n.authorId) === String(ch.userId)) ||
+          (!n.authorId && (n.author || '') === (ch.userName || ''))
+        )
+      );
+
+      return {
+        id: ch.id,
+        date: ch.date || '',
+        doneAt: ch.doneAt || null,
+        equipId: ch.equipId,
+        equipLabel: labelEquip(ch.equipId),
+        userId: ch.userId || null,
+        userName: ch.userName || '',
+        defectsCount: relatedNotes.length,
+        defects: relatedNotes
+      };
+    })
+    .sort((a,b) => {
+      const ad = a.doneAt || a.date || '';
+      const bd = b.doneAt || b.date || '';
+      return ad < bd ? 1 : -1;
+    });
+}
+
+function renderChecksRegistryRows(rows){
+  if(!rows.length){
+    return `<div class="muted">Patikrų įrašų nėra</div>`;
+  }
+
+  return rows.map(r => {
+    const expandedKey = `checkreg_${r.id}`;
+    const expanded = isTaskExpanded(expandedKey);
+
+    return `
+      <div class="taskCard" style="margin-bottom:10px">
+        <div class="taskHead" data-toggle-task="${expandedKey}">
+<div class="taskHeadLeft">
+<div class="taskHeadLeft">
+  <div class="taskTitle" style="font-size:16px;margin:0">
+    ${escapeHtml(r.date || '—')} • ${escapeHtml(r.equipLabel || '—')} • ${escapeHtml(r.userName || '—')}
+    ${r.doneAt ? ` • ${escapeHtml(fmt(r.doneAt))}` : ''}
+  </div>
+</div>
+
+          <div class="taskRight">
+            <span class="taskBadge">${r.defectsCount ? `Trūkumų: ${r.defectsCount}` : 'Be trūkumų'}</span>
+            <span class="taskCaret">${expanded ? '▾' : '▸'}</span>
+          </div>
+        </div>
+
+        ${expanded ? `
+          <div class="taskBody">
+            ${r.defectsCount ? `
+              <div class="muted" style="margin-bottom:8px"><b>Užfiksuoti trūkumai</b></div>
+              ${r.defects.map(n => `
+                <div class="card danger" style="padding:10px;margin-bottom:8px">
+                  ${n.checklistPoint ? `<div class="muted" style="font-size:12px">${escapeHtml(n.checklistPoint)}</div>` : ''}
+                  <div>${escapeHtml(n.text || '')}</div>
+                </div>
+              `).join('')}
+            ` : `
+              <div class="muted">Šioje patikroje trūkumų neužfiksuota.</div>
+            `}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function bindAdminChecksRegistry(){
+  document.querySelectorAll('[data-toggle-task]').forEach(el=>{
+    el.onclick = ()=>{
+      const key = el.getAttribute('data-toggle-task');
+      toggleTaskExpanded(key);
+    };
+  });
+
+  const body = document.getElementById('crBody');
+  const eqEl = document.getElementById('crEquip');
+  const opEl = document.getElementById('crOperator');
+  const fromEl = document.getElementById('crFrom');
+  const toEl = document.getElementById('crTo');
+  const applyBtn = document.getElementById('crApply');
+  const clearBtn = document.getElementById('crClear');
+
+  if(!body) return;
+
+  function applyFilters(){
+    let rows = buildChecksRegistryRows();
+
+    const eq = eqEl ? eqEl.value : '';
+    const op = opEl ? opEl.value : '';
+    const from = fromEl ? fromEl.value : '';
+    const to = toEl ? toEl.value : '';
+
+    rows = rows.filter(r=>{
+      if(eq && r.equipId !== eq) return false;
+      if(op && String(r.userId) !== String(op)) return false;
+      if(from && (!r.date || r.date < from)) return false;
+      if(to && (!r.date || r.date > to)) return false;
+      return true;
+    });
+
+    body.innerHTML = renderChecksRegistryRows(rows);
+
+    document.querySelectorAll('[data-toggle-task]').forEach(el=>{
+      el.onclick = ()=>{
+        const key = el.getAttribute('data-toggle-task');
+        toggleTaskExpanded(key);
+      };
+    });
+  }
+
+  if(applyBtn) applyBtn.onclick = applyFilters;
+
+  if(clearBtn){
+    clearBtn.onclick = ()=>{
+      if(eqEl) eqEl.value = '';
+      if(opEl) opEl.value = '';
+      if(fromEl) fromEl.value = '';
+      if(toEl) toEl.value = '';
+      applyFilters();
+    };
+  }
 }
 
 /* ADMIN – NOTES (vadovas) */
@@ -3829,15 +4196,15 @@ document.getElementById('opSaveCheck').onclick = async () => {
       const val = safeTrim(ta ? ta.value : '');
       const point = fields[idx] || 'Nežinomas punktas';
 
-      const savedNote = await createNoteInSupabase({
-        equipId: eid,
-        date: today(),
-        text: `❌ ${point} – ${val}`,
-        author: (user.display || user.username),
-        type: 'check',
-        checklistPoint: point
-      });
-
+const savedNote = await createNoteInSupabase({
+  equipId: eid,
+  date: today(),
+  text: `❌ ${point} – ${val}`,
+  author: (user.display || user.username),
+  authorId: user.id,
+  type: 'check',
+  checklistPoint: point
+});
       if (!savedNote) {
         alert('Nepavyko išsaugoti vieno iš NOT OK įrašų.');
         return;
@@ -4027,14 +4394,15 @@ document.getElementById('saveQuickNote').onclick = async () => {
       return;
     }
 
-    const savedNote = await createNoteInSupabase({
-      equipId: eid,
-      date: today(),
-      text: txt,
-      author: (user.display || user.username),
-      type: 'quick-note',
-      status: 'open'
-    });
+const savedNote = await createNoteInSupabase({
+  equipId: eid,
+  date: today(),
+  text: txt,
+  author: (user.display || user.username),
+  authorId: user.id,
+  type: 'quick-note',
+  status: 'open'
+});
 
     if (!savedNote) {
       alert('Nepavyko išsaugoti trūkumo.');
@@ -4180,91 +4548,102 @@ function mechanicTasks(user){
   const mechUsers = usersByRole('mechanic');
 
   const cards = active.length ? active.map(t=>{
-    const isUnseen = !isSeen(t, myId);
-    const cardCls = 'card danger' + (isUnseen ? ' blink' : '');
+  const isUnseen = !isSeen(t, myId);
+  const expandedKey = `mech_${t.id}`;
+  const expanded = isTaskExpanded(expandedKey);
+  const cardCls = 'taskCard danger' + (isUnseen ? ' blink' : '');
 
-    const helpersOptions = mechUsers
-      .filter(m=>m.id!==myId)
-      .map(m=>`<option value="${m.id}">${escapeHtml(m.display||m.username)}</option>`)
-      .join('');
+  const helpersOptions = mechUsers
+    .filter(m=>m.id!==myId)
+    .map(m=>`<option value="${m.id}">${escapeHtml(m.display||m.username)}</option>`)
+    .join('');
 
-    const progress = t.progressLog || [];
-    const progressHtml = progress.length ? `
-      <div class="muted" style="margin-top:10px;font-size:12px">
-        Ankstesni komentarai:
-        ${progress.map(p => `
-          <div>• ${escapeHtml(p.date || '')} — ${escapeHtml(p.byName || '')}: ${escapeHtml(p.text || '')}</div>
-        `).join('')}
+  const progress = t.progressLog || [];
+  const progressHtml = progress.length ? `
+    <div class="muted" style="margin-top:10px;font-size:12px">
+      Ankstesni komentarai:
+      ${progress.map(p => `
+        <div>• ${escapeHtml(p.date || '')} — ${escapeHtml(p.byName || '')}: ${escapeHtml(p.text || '')}</div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  return `
+    <div class="${cardCls}">
+      <div class="taskHead" data-toggle-task="${expandedKey}">
+        <div class="taskHeadLeft">
+          <div class="taskMeta">${escapeHtml(labelEquip(t.equipId))}</div>
+          <div class="taskTitle">${escapeHtml(t.title)}</div>
+          <div class="taskMeta">
+            Paliko: ${escapeHtml(t.createdBy || '—')}
+            ${t.createdByRole ? `(${escapeHtml(t.createdByRole)})` : ''}
+          </div>
+          <div class="taskSummary">${escapeHtml(taskShortSummary(t))}</div>
+        </div>
+
+        <div class="taskRight">
+          <span class="taskBadge">${escapeHtml(t.status || '—')}${isUnseen ? ' • NEMATYTA' : ''}</span>
+          <span class="taskCaret">${expanded ? '▾' : '▸'}</span>
+        </div>
       </div>
-    ` : '';
 
-    return `
-      <div class="${cardCls}">
-        <div class="muted">${escapeHtml(labelEquip(t.equipId))}</div>
-        <b>${escapeHtml(t.title)}</b>
+      ${expanded ? `
+        <div class="taskBody">
+          ${t.initialComment ? `
+            <div class="muted" style="margin-top:4px;font-style:italic">
+              Komentaras: ${escapeHtml(t.initialComment)}
+            </div>
+          ` : ''}
 
-        <div class="muted">
-          Paliko: ${escapeHtml(t.createdBy || '—')}
-          ${t.createdByRole ? `(${escapeHtml(t.createdByRole)})` : ''}
-        </div>
-
-        ${t.initialComment ? `
-          <div class="muted" style="margin-top:4px;font-style:italic">
-            Komentaras: ${escapeHtml(t.initialComment)}
+          <div class="muted" style="margin-top:4px">
+            Priskirta: ${t.shared
+              ? 'Bendra visiems'
+              : ((t.assignedTo||[]).map(userDisplay).join(', ') || '—')}
           </div>
-        ` : ''}
 
-        <div class="muted" style="margin-top:4px">
-          Statusas: ${escapeHtml(t.status || '—')}
-          ${isUnseen ? ' • NEMATYTA' : ''}
-        </div>
+          <div class="muted" style="font-size:12px">
+            ${escapeHtml(seenInfo(t))}
+          </div>
 
-        <div class="muted">
-          Priskirta: ${t.shared
-            ? 'Bendra visiems'
-            : ((t.assignedTo||[]).map(userDisplay).join(', ') || '—')}
-        </div>
+          ${progressHtml}
 
-        <div class="muted" style="font-size:12px">
-          ${escapeHtml(seenInfo(t))}
-        </div>
+          <div style="margin-top:10px">
+            <div class="muted">Komentaras (nebūtina)</div>
+            <textarea class="mechComment" data-id="${t.id}" placeholder="Komentaras apie atliktą darbą…"></textarea>
+          </div>
 
-        ${progressHtml}
+          <div style="margin-top:10px">
+            <div class="muted">Padėję mechanikai (jei buvo)</div>
+            <select class="helperSelect" data-id="${t.id}" multiple>
+              ${helpersOptions || '<option disabled>(nėra kitų mechanikų)</option>'}
+            </select>
+            <div class="muted" style="font-size:12px;margin-top:2px">
+              Laikyk CTRL (arba Cmd), kad pažymėtum kelis.
+            </div>
+          </div>
 
-        <div style="margin-top:10px">
-          <div class="muted">Komentaras (nebūtina)</div>
-          <textarea class="mechComment" data-id="${t.id}" placeholder="Komentaras apie atliktą darbą…"></textarea>
-        </div>
+          <div class="right" style="margin-top:6px">
+            <button class="btn" data-seen="${t.id}">SEEN</button>
+            <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
+            <button class="btn amber" data-pass-manager="${t.id}">Perduoti vadovui</button>
+            <button class="btn green" data-done="${t.id}">Baigta (siųsti patvirtinimui)</button>
+          </div>
 
-        <div style="margin-top:10px">
-          <div class="muted">Padėję mechanikai (jei buvo)</div>
-          <select class="helperSelect" data-id="${t.id}" multiple>
-            ${helpersOptions || '<option disabled>(nėra kitų mechanikų)</option>'}
-          </select>
-          <div class="muted" style="font-size:12px;margin-top:2px">
-            Laikyk CTRL (arba Cmd), kad pažymėtum kelis.
+          <div style="margin-top:10px">
+            <div class="muted">Pridėti foto / dokumentą</div>
+            <input type="file" class="taskFileInput" data-task-file="${t.id}">
+            <div class="right" style="margin-top:6px">
+              <button class="btn" data-upload-task-file="${t.id}">Įkelti failą</button>
+            </div>
+            <div style="margin-top:6px">
+              ${taskFilesHtml(t.id)}
+            </div>
           </div>
         </div>
-
-        <div class="right" style="margin-top:6px">
-          <button class="btn" data-seen="${t.id}">SEEN</button>
-          <button class="btn" data-st="${t.id}|Vykdoma">Vykdoma</button>
-          <button class="btn amber" data-pass-manager="${t.id}">Perduoti vadovui</button>
-          <button class="btn green" data-done="${t.id}">Baigta (siųsti patvirtinimui)</button>
-        </div>
-        <div style="margin-top:10px">
-  <div class="muted">Pridėti foto / dokumentą</div>
-  <input type="file" class="taskFileInput" data-task-file="${t.id}">
-  <div class="right" style="margin-top:6px">
-    <button class="btn" data-upload-task-file="${t.id}">Įkelti failą</button>
-  </div>
-  <div style="margin-top:6px">
-    ${taskFilesHtml(t.id)}
-  </div>
-</div>
-
-    `;
-  }).join('') : '<div class="card muted">Aktyvių užduočių nėra</div>';
+      ` : ''}
+    </div>
+  `;
+}).join('') : '<div class="card muted">Aktyvių užduočių nėra</div>';
 
   const waitingCards = waiting.length ? waiting.map(t=>{
     const progress = t.progressLog || [];
@@ -4337,6 +4716,12 @@ return `
 }
 
 function bindMechanicTasks(user){
+    document.querySelectorAll('[data-toggle-task]').forEach(el=>{
+    el.onclick = ()=>{
+      const key = el.getAttribute('data-toggle-task');
+      toggleTaskExpanded(key);
+    };
+  });
   document.querySelectorAll('[data-seen]').forEach(b=>{
     b.onclick = ()=>{
       const id = b.getAttribute('data-seen');
