@@ -1381,10 +1381,25 @@ async function boot(){
 
   const dailyChecksFromCloud = await loadDailyChecksFromSupabase();
   db.dailyChecks = dailyChecksFromCloud;
+  const devicesFromCloud = await loadDevicesFromSupabase();
+  db.devices = devicesFromCloud;
 
   render();
 }
 
+async function loadDevicesFromSupabase(){
+  const { data, error } = await sb
+    .from('devices')
+    .select('*')
+    .order('last_seen_at', { ascending: false });
+
+  if(error){
+    console.error('Klaida gaunant devices:', error);
+    return [];
+  }
+
+  return data || [];
+}
 
 async function deleteGrabFromSupabase(grabId){
   const { error } = await sb
@@ -1499,6 +1514,91 @@ function taskShortSummary(t){
 
   return bits.length ? bits.join(' • ') : 'be komentarų ir failų';
 }
+function getOrCreateDeviceId(){
+  let id = localStorage.getItem('vkr_device_id');
+  if(id) return id;
+
+  id = 'dev_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+  localStorage.setItem('vkr_device_id', id);
+  return id;
+}
+
+function getDeviceName(){
+  return localStorage.getItem('vkr_device_name') || '';
+}
+
+function setDeviceName(name){
+  localStorage.setItem('vkr_device_name', safeTrim(name || ''));
+}
+async function upsertCurrentDevice(user){
+  const deviceId = getOrCreateDeviceId();
+  const deviceName = getDeviceName();
+
+  const payload = {
+    device_id: deviceId,
+    device_name: deviceName || null,
+    last_seen_at: new Date().toISOString(),
+    last_user_id: user?.id || null,
+    last_user_name: user?.display || user?.username || ''
+  };
+
+  const existing = await sb
+    .from('devices')
+    .select('id, device_id, equip_id')
+    .eq('device_id', deviceId)
+    .maybeSingle();
+
+  if(existing.error){
+    console.error('Device lookup klaida:', existing.error);
+    return null;
+  }
+
+  if(existing.data){
+    const { data, error } = await sb
+      .from('devices')
+      .update(payload)
+      .eq('device_id', deviceId)
+      .select()
+      .single();
+
+    if(error){
+      console.error('Device update klaida:', error);
+      return null;
+    }
+
+    return data;
+  }
+
+  const { data, error } = await sb
+    .from('devices')
+    .insert([payload])
+    .select()
+    .single();
+
+  if(error){
+    console.error('Device insert klaida:', error);
+    return null;
+  }
+
+  return data;
+}
+
+async function getCurrentDeviceRecord(){
+  const deviceId = getOrCreateDeviceId();
+
+  const { data, error } = await sb
+    .from('devices')
+    .select('*')
+    .eq('device_id', deviceId)
+    .maybeSingle();
+
+  if(error){
+    console.error('Klaida gaunant current device:', error);
+    return null;
+  }
+
+  return data || null;
+}
 
 function ensureAdminUiState(){
   if(!db.session) db.session = {};
@@ -1551,16 +1651,18 @@ async function saveDB(dbObj){
 function seedDB(){
 const db = {
   version: 1,
-  session: {
-userId: null,
+session: {
+  userId: null,
   currentUser: null,
   adminView:'dashboard',
   opView:'home',
   mechView:'tasks',
   opEquipId:null,
+  deviceEquipId:null,
+  deviceId:null,
   taskExpanded:{}
+},
 
-  },
   users: [],
   equipment: [
     { id:'terberg-106', type:'Terberg', num:'106', name:'', model:'' },
@@ -1579,7 +1681,8 @@ userId: null,
   notes: [],
   completed: [],
   lube: {},
-  dailyChecks: []
+  dailyChecks: [],
+  devices: []
 };
 
   // demo users
@@ -1669,6 +1772,10 @@ async function restoreSessionFromAuth(){
   } else {
     db.users.push(normalizedUser);
   }
+  await upsertCurrentDevice(normalizedUser);
+  const currentDevice = await getCurrentDeviceRecord();
+db.session.deviceEquipId = currentDevice?.equip_id || null;
+db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
 }
 
 /* auth */
@@ -1727,17 +1834,23 @@ async function doLogin(username, password){
     };
 
     db.session.userId = normalizedUser.id;
-    db.session.currentUser = normalizedUser;
+db.session.currentUser = normalizedUser;
 
-    const existingIdx = (db.users || []).findIndex(u => u.id === normalizedUser.id);
-    if(existingIdx >= 0){
-      db.users[existingIdx] = normalizedUser;
-    } else {
-      db.users.push(normalizedUser);
-    }
+const existingIdx = (db.users || []).findIndex(u => u.id === normalizedUser.id);
+if(existingIdx >= 0){
+  db.users[existingIdx] = normalizedUser;
+} else {
+  db.users.push(normalizedUser);
+}
 
-    saveDB_local(db);
-    return { ok:true, user: normalizedUser };
+await upsertCurrentDevice(normalizedUser);
+
+const currentDevice = await getCurrentDeviceRecord();
+db.session.deviceEquipId = currentDevice?.equip_id || null;
+db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+
+saveDB_local(db);
+return { ok:true, user: normalizedUser };
 
   }catch(err){
     console.error(err);
@@ -1915,6 +2028,7 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
 </button>
         ${tabBtn('notes','Pastabos',view)}
         ${tabBtn('checks','Patikrų registras',view)}
+        ${tabBtn('devices','Planšetės',view)}
         ${tabBtn('users','Naudotojai',view)}
         ${tabBtn('equip','Technika',view)}
         ${tabBtn('grabs','Greiferiai',view)}
@@ -1931,6 +2045,7 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
   else if(view==='approvals') mid = adminApprovals();
   else if(view==='notes') mid = adminNotes(user);
   else if(view==='checks') mid = adminChecksRegistry();
+  else if(view==='devices') mid = adminDevices();
   else if(view==='users') mid = adminUsers();
   else if(view==='equip') mid = adminEquip();
   else if(view==='grabs') mid = adminGrabs();
@@ -1956,6 +2071,7 @@ if(view==='waiting') bindAdminWaitingTasks();
 if(view==='approvals') bindAdminApprovals();
 if(view==='notes') bindAdminNotes(user);
 if(view==='checks') bindAdminChecksRegistry();
+if(view==='devices') bindAdminDevices();
 if(view==='password') bindChangePassword(user);
 if(view==='lube') bindAdminLube();
 if(view==='grabs') bindAdminGrabs();
@@ -1965,6 +2081,141 @@ if(view==='tasks') bindTaskFileUploads(user);
 if(view==='history') bindTaskFileUploads(user);
 if(view==='approvals') bindTaskFileUploads(user);
 if(view==='notes') bindTaskFileUploads(user);
+}
+
+function adminDevices(){
+  const eqOpts = (db.equipment || [])
+    .map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
+    .join('');
+
+  const rows = ((db.devices || []).slice().sort((a,b)=>{
+    const ad = a.last_seen_at || '';
+    const bd = b.last_seen_at || '';
+    return ad < bd ? 1 : -1;
+  })).map(d=>`
+    <tr>
+      <td><code>${escapeHtml(d.device_id || '')}</code></td>
+      <td>${escapeHtml(d.device_name || '—')}</td>
+      <td>${escapeHtml(labelEquip(d.equip_id) || d.equip_id || '—')}</td>
+      <td>${escapeHtml(d.last_user_name || '—')}</td>
+      <td>${escapeHtml(fmt(d.last_seen_at) || '—')}</td>
+      <td class="right">
+        <button class="btn" data-edit-device="${d.device_id}">Priskirti techniką</button>
+      </td>
+    </tr>
+  `).join('') || `<tr><td colspan="6" class="muted">Planšečių dar nėra</td></tr>`;
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Planšečių registras</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Device ID</th>
+            <th>Pavadinimas</th>
+            <th>Priskirta technika</th>
+            <th>Paskutinis vartotojas</th>
+            <th>Paskutinį kartą matyta</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Priskirti techniką planšetei</h3>
+      <div class="row row-3">
+        <div>
+          <div class="muted">Device ID</div>
+          <input id="dDeviceId" readonly>
+        </div>
+        <div>
+          <div class="muted">Planšetės pavadinimas</div>
+          <input id="dDeviceName" placeholder="pvz. Bobcat kabina">
+        </div>
+        <div>
+          <div class="muted">Technika</div>
+          <select id="dEquipId">
+            <option value="">— Nepriskirta —</option>
+            ${eqOpts}
+          </select>
+        </div>
+      </div>
+
+      <div class="right" style="margin-top:10px">
+        <button class="btn" id="dClear">Išvalyti</button>
+        <button class="btn primary" id="dSave">Išsaugoti</button>
+      </div>
+
+      <div class="muted" style="font-size:12px" id="dMsg"></div>
+    </div>
+  `;
+}
+
+function bindAdminDevices(){
+  const idEl = document.getElementById('dDeviceId');
+  const nmEl = document.getElementById('dDeviceName');
+  const eqEl = document.getElementById('dEquipId');
+  const msg = document.getElementById('dMsg');
+
+  function clear(){
+    if(idEl) idEl.value = '';
+    if(nmEl) nmEl.value = '';
+    if(eqEl) eqEl.value = '';
+    if(msg) msg.textContent = '';
+  }
+
+  const clearBtn = document.getElementById('dClear');
+  if(clearBtn) clearBtn.onclick = clear;
+
+  document.querySelectorAll('[data-edit-device]').forEach(b=>{
+    b.onclick = ()=>{
+      const deviceId = b.getAttribute('data-edit-device');
+      const d = (db.devices || []).find(x => x.device_id === deviceId);
+      if(!d) return;
+
+      if(idEl) idEl.value = d.device_id || '';
+      if(nmEl) nmEl.value = d.device_name || '';
+      if(eqEl) eqEl.value = d.equip_id || '';
+      if(msg) msg.textContent = 'Redaguoji planšetę: ' + (d.device_name || d.device_id);
+    };
+  });
+
+  const saveBtn = document.getElementById('dSave');
+  if(saveBtn){
+    saveBtn.onclick = async ()=>{
+      const deviceId = safeTrim(idEl?.value || '');
+      const deviceName = safeTrim(nmEl?.value || '');
+      const equipId = safeTrim(eqEl?.value || '');
+
+      if(!deviceId){
+        if(msg) msg.textContent = 'Pirma pasirink planšetę iš sąrašo.';
+        return;
+      }
+
+      const { data, error } = await sb
+        .from('devices')
+        .update({
+          device_name: deviceName || null,
+          equip_id: equipId || null
+        })
+        .eq('device_id', deviceId)
+        .select()
+        .single();
+
+      if(error){
+        if(msg) msg.textContent = 'Nepavyko išsaugoti: ' + error.message;
+        return;
+      }
+
+      const idx = (db.devices || []).findIndex(x => x.device_id === deviceId);
+      if(idx >= 0) db.devices[idx] = data;
+
+      if(msg) msg.textContent = 'Išsaugota.';
+      render();
+    };
+  }
 }
 
 function adminDashboard(){
@@ -3955,8 +4206,9 @@ function renderOperator(root,user){
   ensureDailyChecks();
 
   let view = db.session.opView || 'home';
-  const eid = user.equipId || (db.equipment[0] ? db.equipment[0].id : null);
+  const eid = db.session.deviceEquipId || user.equipId || (db.equipment[0] ? db.equipment[0].id : null);
   const todayChecked = hasTodayCheck(eid);
+  
     if(!todayChecked && view !== 'check' && view !== 'password'){
     view = 'check';
     db.session.opView = 'check';
@@ -3995,7 +4247,20 @@ function renderOperator(root,user){
 
   const body = document.getElementById('opBody');
   if (!body) return;
-
+if(!db.session.deviceEquipId){
+  body.innerHTML = `
+    <div class="card danger">
+      <h3 style="margin-top:0">Planšetė nepriskirta technikai</h3>
+      <div class="muted" style="margin-top:6px">
+        Device ID: <code>${escapeHtml(db.session.deviceId || getOrCreateDeviceId())}</code>
+      </div>
+      <div style="margin-top:10px">
+        Paprašykite administratoriaus lange <b>Planšetės</b> priskirti šiai planšetei techniką.
+      </div>
+    </div>
+  `;
+  return;
+}
   /* HOME */
   if (view === 'home') {
     body.innerHTML = `
