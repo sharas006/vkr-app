@@ -2185,18 +2185,111 @@ function bindAdminChecklists(){
     const items = (db.equipmentChecklists?.[equipId] || []).slice()
       .sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-    listEl.innerHTML = items.length ? items.map((item, idx) => `
-      <div class="card" style="padding:10px;margin-bottom:8px">
-        <div class="headerline">
-          <div>
-            <b>${idx + 1}. ${escapeHtml(item.text || '')}</b>
-          </div>
-          <div class="right">
-            <button class="btn red" data-del-check-item="${item.id}" data-equip="${equipId}">Trinti</button>
-          </div>
-        </div>
+listEl.innerHTML = items.length ? items.map((item, idx) => `
+  <div class="card" style="padding:10px;margin-bottom:8px">
+    <div class="headerline">
+      <div>
+        <b>${idx + 1}. ${escapeHtml(item.text || '')}</b>
       </div>
-    `).join('') : `<div class="muted">Šiai technikai punktų dar nėra.</div>`;
+      <div class="right">
+        <button class="btn" data-move-check-up="${item.id}" data-equip="${equipId}">↑</button>
+        <button class="btn" data-move-check-down="${item.id}" data-equip="${equipId}">↓</button>
+        <button class="btn red" data-del-check-item="${item.id}" data-equip="${equipId}">Trinti</button>
+      </div>
+    </div>
+  </div>
+`).join('') : `<div class="muted">Šiai technikai punktų dar nėra.</div>`;
+document.querySelectorAll('[data-move-check-up]').forEach(b=>{
+  b.onclick = async ()=>{
+    const itemId = b.getAttribute('data-move-check-up');
+    const eq = b.getAttribute('data-equip');
+
+    const arr = (db.equipmentChecklists?.[eq] || []).slice()
+      .sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const idx = arr.findIndex(x => String(x.id) === String(itemId));
+    if(idx <= 0) return;
+
+    const current = arr[idx];
+    const prev = arr[idx - 1];
+
+    const currentSort = current.sortOrder || 0;
+    const prevSort = prev.sortOrder || 0;
+
+    const r1 = await sb
+      .from('equipment_checklists')
+      .update({ sort_order: prevSort })
+      .eq('id', current.id);
+
+    if(r1.error){
+      if(msgEl) msgEl.textContent = 'Nepavyko perkelti aukštyn: ' + r1.error.message;
+      return;
+    }
+
+    const r2 = await sb
+      .from('equipment_checklists')
+      .update({ sort_order: currentSort })
+      .eq('id', prev.id);
+
+    if(r2.error){
+      if(msgEl) msgEl.textContent = 'Nepavyko perkelti aukštyn: ' + r2.error.message;
+      return;
+    }
+
+    current.sortOrder = prevSort;
+    prev.sortOrder = currentSort;
+    db.equipmentChecklists[eq] = arr;
+
+    if(msgEl) msgEl.textContent = 'Punktas perkeltas aukštyn.';
+    renderChecklistItems();
+  };
+});
+
+document.querySelectorAll('[data-move-check-down]').forEach(b=>{
+  b.onclick = async ()=>{
+    const itemId = b.getAttribute('data-move-check-down');
+    const eq = b.getAttribute('data-equip');
+
+    const arr = (db.equipmentChecklists?.[eq] || []).slice()
+      .sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const idx = arr.findIndex(x => String(x.id) === String(itemId));
+    if(idx < 0 || idx >= arr.length - 1) return;
+
+    const current = arr[idx];
+    const next = arr[idx + 1];
+
+    const currentSort = current.sortOrder || 0;
+    const nextSort = next.sortOrder || 0;
+
+    const r1 = await sb
+      .from('equipment_checklists')
+      .update({ sort_order: nextSort })
+      .eq('id', current.id);
+
+    if(r1.error){
+      if(msgEl) msgEl.textContent = 'Nepavyko perkelti žemyn: ' + r1.error.message;
+      return;
+    }
+
+    const r2 = await sb
+      .from('equipment_checklists')
+      .update({ sort_order: currentSort })
+      .eq('id', next.id);
+
+    if(r2.error){
+      if(msgEl) msgEl.textContent = 'Nepavyko perkelti žemyn: ' + r2.error.message;
+      return;
+    }
+
+    current.sortOrder = nextSort;
+    next.sortOrder = currentSort;
+    db.equipmentChecklists[eq] = arr;
+
+    if(msgEl) msgEl.textContent = 'Punktas perkeltas žemyn.';
+    renderChecklistItems();
+  };
+});
 
     document.querySelectorAll('[data-del-check-item]').forEach(b=>{
       b.onclick = async ()=>{
