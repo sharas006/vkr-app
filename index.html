@@ -316,6 +316,32 @@ return (data || []).map(t => ({
   createdByRole: t.created_by_role || ''
 }));
 }
+
+async function loadEquipmentChecklistsFromSupabase(){
+  const { data, error } = await sb
+    .from('equipment_checklists')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+
+  if(error){
+    console.error('Klaida gaunant equipment_checklists:', error);
+    return {};
+  }
+
+  const grouped = {};
+  (data || []).forEach(r => {
+    if(!grouped[r.equip_id]) grouped[r.equip_id] = [];
+    grouped[r.equip_id].push({
+      id: r.id,
+      text: r.item_text || '',
+      sortOrder: r.sort_order || 0
+    });
+  });
+
+  return grouped;
+}
+
 async function loadTaskFilesFromSupabase(){
   const { data, error } = await sb
     .from('task_files')
@@ -1383,6 +1409,8 @@ async function boot(){
   db.dailyChecks = dailyChecksFromCloud;
   const devicesFromCloud = await loadDevicesFromSupabase();
   db.devices = devicesFromCloud;
+  const checklistsFromCloud = await loadEquipmentChecklistsFromSupabase();
+  db.equipmentChecklists = checklistsFromCloud;
 
   render();
 }
@@ -1682,7 +1710,8 @@ session: {
   completed: [],
   lube: {},
   dailyChecks: [],
-  devices: []
+  devices: [],
+  equipmentChecklists: {}
 };
 
   // demo users
@@ -2029,6 +2058,7 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
         ${tabBtn('notes','Pastabos',view)}
         ${tabBtn('checks','Patikrų registras',view)}
         ${tabBtn('devices','Planšetės',view)}
+        ${tabBtn('checklists','Patikros šablonai',view)}
         ${tabBtn('users','Naudotojai',view)}
         ${tabBtn('equip','Technika',view)}
         ${tabBtn('grabs','Greiferiai',view)}
@@ -2046,6 +2076,7 @@ const waitingAttentionCount = (db.tasks || []).filter(t =>
   else if(view==='notes') mid = adminNotes(user);
   else if(view==='checks') mid = adminChecksRegistry();
   else if(view==='devices') mid = adminDevices();
+  else if(view==='checklists') mid = adminChecklists();
   else if(view==='users') mid = adminUsers();
   else if(view==='equip') mid = adminEquip();
   else if(view==='grabs') mid = adminGrabs();
@@ -2072,6 +2103,7 @@ if(view==='approvals') bindAdminApprovals();
 if(view==='notes') bindAdminNotes(user);
 if(view==='checks') bindAdminChecksRegistry();
 if(view==='devices') bindAdminDevices();
+if(view==='checklists') bindAdminChecklists();
 if(view==='password') bindChangePassword(user);
 if(view==='lube') bindAdminLube();
 if(view==='grabs') bindAdminGrabs();
@@ -2081,6 +2113,158 @@ if(view==='tasks') bindTaskFileUploads(user);
 if(view==='history') bindTaskFileUploads(user);
 if(view==='approvals') bindTaskFileUploads(user);
 if(view==='notes') bindTaskFileUploads(user);
+}
+
+function adminChecklists(){
+  const eqOpts = (db.equipment || [])
+    .map(e=>`<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
+    .join('');
+
+  return `
+    <div class="card">
+      <h3 style="margin-top:0">Patikros šablonai pagal techniką</h3>
+
+      <div class="row row-3">
+        <div>
+          <div class="muted">Technika</div>
+          <select id="clEquip">
+            <option value="">— Pasirink techniką —</option>
+            ${eqOpts}
+          </select>
+        </div>
+
+        <div>
+          <div class="muted">Naujas punktas</div>
+          <input id="clNewItem" placeholder="Pvz. Variklio tepalas">
+        </div>
+
+        <div class="right" style="align-items:flex-end">
+          <button class="btn primary" id="clAdd">Pridėti punktą</button>
+        </div>
+      </div>
+
+      <div id="clList" style="margin-top:12px">
+        <div class="muted">Pasirink techniką.</div>
+      </div>
+
+      <div class="muted" style="font-size:12px;margin-top:10px" id="clMsg"></div>
+    </div>
+  `;
+}
+
+function bindAdminChecklists(){
+  const eqEl = document.getElementById('clEquip');
+  const newEl = document.getElementById('clNewItem');
+  const listEl = document.getElementById('clList');
+  const msgEl = document.getElementById('clMsg');
+  const addBtn = document.getElementById('clAdd');
+
+  if(!eqEl || !listEl) return;
+
+  function renderChecklistItems(){
+    const equipId = eqEl.value;
+
+    if(!equipId){
+      listEl.innerHTML = `<div class="muted">Pasirink techniką.</div>`;
+      return;
+    }
+
+    const items = (db.equipmentChecklists?.[equipId] || []).slice()
+      .sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    listEl.innerHTML = items.length ? items.map((item, idx) => `
+      <div class="card" style="padding:10px;margin-bottom:8px">
+        <div class="headerline">
+          <div>
+            <b>${idx + 1}. ${escapeHtml(item.text || '')}</b>
+          </div>
+          <div class="right">
+            <button class="btn red" data-del-check-item="${item.id}" data-equip="${equipId}">Trinti</button>
+          </div>
+        </div>
+      </div>
+    `).join('') : `<div class="muted">Šiai technikai punktų dar nėra.</div>`;
+
+    document.querySelectorAll('[data-del-check-item]').forEach(b=>{
+      b.onclick = async ()=>{
+        const itemId = b.getAttribute('data-del-check-item');
+        const eq = b.getAttribute('data-equip');
+
+        const { error } = await sb
+          .from('equipment_checklists')
+          .delete()
+          .eq('id', itemId);
+
+        if(error){
+          if(msgEl) msgEl.textContent = 'Nepavyko ištrinti: ' + error.message;
+          return;
+        }
+
+        if(db.equipmentChecklists?.[eq]){
+          db.equipmentChecklists[eq] = db.equipmentChecklists[eq].filter(x => String(x.id) !== String(itemId));
+        }
+
+        if(msgEl) msgEl.textContent = 'Punktas ištrintas.';
+        renderChecklistItems();
+      };
+    });
+  }
+
+  eqEl.onchange = ()=>{
+    if(msgEl) msgEl.textContent = '';
+    renderChecklistItems();
+  };
+
+  if(addBtn){
+    addBtn.onclick = async ()=>{
+      const equipId = eqEl.value;
+      const text = safeTrim(newEl?.value || '');
+
+      if(!equipId){
+        if(msgEl) msgEl.textContent = 'Pasirink techniką.';
+        return;
+      }
+
+      if(!text){
+        if(msgEl) msgEl.textContent = 'Įrašyk naują punktą.';
+        return;
+      }
+
+      const currentItems = db.equipmentChecklists?.[equipId] || [];
+      const nextSort = currentItems.length
+        ? Math.max(...currentItems.map(x => x.sortOrder || 0)) + 1
+        : 1;
+
+      const { data, error } = await sb
+        .from('equipment_checklists')
+        .insert([{
+          equip_id: equipId,
+          item_text: text,
+          sort_order: nextSort,
+          is_active: true
+        }])
+        .select()
+        .single();
+
+      if(error){
+        if(msgEl) msgEl.textContent = 'Nepavyko pridėti: ' + error.message;
+        return;
+      }
+
+      if(!db.equipmentChecklists) db.equipmentChecklists = {};
+      if(!db.equipmentChecklists[equipId]) db.equipmentChecklists[equipId] = [];
+
+      db.equipmentChecklists[equipId].push({
+        id: data.id,
+        text: data.item_text || '',
+        sortOrder: data.sort_order || 0
+      });
+
+      if(newEl) newEl.value = '';
+      if(msgEl) msgEl.textContent = 'Punktas pridėtas.';
+      renderChecklistItems();
+    };
+  }
 }
 
 function adminDevices(){
@@ -4110,14 +4294,13 @@ function bindAdminHistory(){
     };
   }
 }
+
 function getChecklistForEquip(eid){
-  if(db.checklistsByEquip && db.checklistsByEquip[eid]){
-    return db.checklistsByEquip[eid];
+  const items = db.equipmentChecklists?.[eid] || [];
+  if(items.length){
+    return items.map(x => x.text);
   }
-  if(db.checklistsByEquip && db.checklistsByEquip._default){
-    return db.checklistsByEquip._default;
-  }
-  return operatorChecklistDefaults(); // fallback
+  return operatorChecklistDefaults();
 }
 
 /* OPERATOR LOGIKA */
@@ -4136,20 +4319,6 @@ function ensureOperatorData(){
 
 
   if(!db.session.opRunningByEquip) db.session.opRunningByEquip = {}; // equipId -> taskId
-
-  // NAUJA: per-technikų checklist’ai
-  if(!db.checklistsByEquip) db.checklistsByEquip = {};
-
-  // senas laukas - kad nesulūžtų sena info (jei buvo)
-  if(db.checklistFields && Array.isArray(db.checklistFields) && db.checklistFields.length){
-    db.checklistsByEquip._default = db.checklistFields.slice();
-    delete db.checklistFields;
-  }
-
-  if(!db.checklistsByEquip._default || !db.checklistsByEquip._default.length){
-    db.checklistsByEquip._default = operatorChecklistDefaults();
-  }
-
   if(!db.plans) db.plans = {}; // plans[equipId] = [{id,type,at,note}]
 }
 
