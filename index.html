@@ -2139,8 +2139,9 @@ function adminChecklists(){
         </div>
 
         <div class="right" style="align-items:flex-end">
-          <button class="btn primary" id="clAdd">Pridėti punktą</button>
-        </div>
+        <button class="btn" id="clLoadDefault">Užkrauti default</button>
+        <button class="btn primary" id="clAdd">Pridėti punktą</button>
+       </div>
       </div>
 
       <div id="clList" style="margin-top:12px">
@@ -2158,6 +2159,7 @@ function bindAdminChecklists(){
   const listEl = document.getElementById('clList');
   const msgEl = document.getElementById('clMsg');
   const addBtn = document.getElementById('clAdd');
+  const loadBtn = document.getElementById('clLoadDefault');
 
   if(!eqEl || !listEl) return;
 
@@ -2214,6 +2216,58 @@ function bindAdminChecklists(){
     if(msgEl) msgEl.textContent = '';
     renderChecklistItems();
   };
+  if(loadBtn){
+  loadBtn.onclick = async ()=>{
+    const equipId = eqEl.value;
+
+    if(!equipId){
+      if(msgEl) msgEl.textContent = 'Pasirink techniką.';
+      return;
+    }
+
+    const existing = db.equipmentChecklists?.[equipId] || [];
+    if(existing.length){
+      if(!confirm('Šiai technikai punktai jau yra. Užkrauti default papildomai?')) return;
+    }
+
+    const defaults = operatorChecklistDefaults();
+
+    for(let i = 0; i < defaults.length; i++){
+      const text = defaults[i];
+
+      const alreadyExists = (db.equipmentChecklists?.[equipId] || []).some(x => x.text === text);
+      if(alreadyExists) continue;
+
+      const { data, error } = await sb
+        .from('equipment_checklists')
+        .insert([{
+          equip_id: equipId,
+          item_text: text,
+          sort_order: i + 1,
+          is_active: true
+        }])
+        .select()
+        .single();
+
+      if(error){
+        if(msgEl) msgEl.textContent = 'Nepavyko užkrauti default: ' + error.message;
+        return;
+      }
+
+      if(!db.equipmentChecklists) db.equipmentChecklists = {};
+      if(!db.equipmentChecklists[equipId]) db.equipmentChecklists[equipId] = [];
+
+      db.equipmentChecklists[equipId].push({
+        id: data.id,
+        text: data.item_text || '',
+        sortOrder: data.sort_order || 0
+      });
+    }
+
+    if(msgEl) msgEl.textContent = 'Default punktai užkrauti.';
+    renderChecklistItems();
+  };
+}
 
   if(addBtn){
     addBtn.onclick = async ()=>{
