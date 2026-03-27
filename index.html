@@ -1801,10 +1801,16 @@ async function restoreSessionFromAuth(){
   } else {
     db.users.push(normalizedUser);
   }
+if(normalizedUser.role === 'operator'){
   await upsertCurrentDevice(normalizedUser);
+
   const currentDevice = await getCurrentDeviceRecord();
-db.session.deviceEquipId = currentDevice?.equip_id || null;
-db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+  db.session.deviceEquipId = currentDevice?.equip_id || null;
+  db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+} else {
+  db.session.deviceEquipId = null;
+  db.session.deviceId = null;
+}
 }
 
 /* auth */
@@ -1872,11 +1878,16 @@ if(existingIdx >= 0){
   db.users.push(normalizedUser);
 }
 
-await upsertCurrentDevice(normalizedUser);
+if(normalizedUser.role === 'operator'){
+  await upsertCurrentDevice(normalizedUser);
 
-const currentDevice = await getCurrentDeviceRecord();
-db.session.deviceEquipId = currentDevice?.equip_id || null;
-db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+  const currentDevice = await getCurrentDeviceRecord();
+  db.session.deviceEquipId = currentDevice?.equip_id || null;
+  db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+} else {
+  db.session.deviceEquipId = null;
+  db.session.deviceId = null;
+}
 
 saveDB_local(db);
 return { ok:true, user: normalizedUser };
