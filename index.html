@@ -494,13 +494,24 @@ document.querySelectorAll('[data-open-file]').forEach(link => {
     const file = (db.taskFiles || []).find(f => String(f.id) === String(id));
     if (!file) return;
 
+    const newTab = window.open('', '_blank');
+
+    if (newTab) {
+      newTab.document.write('<p style="font-family:sans-serif;padding:20px;">Kraunama...</p>');
+    }
+
     const url = await getTaskFileUrl(file.filePath);
     if (!url) {
+      if (newTab) newTab.close();
       alert('Nepavyko atidaryti failo.');
       return;
     }
 
-    window.location.assign(url);
+    if (newTab) {
+      newTab.location.href = url;
+    } else {
+      window.location.assign(url);
+    }
   };
 });
 }
