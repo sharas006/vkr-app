@@ -492,21 +492,15 @@ document.querySelectorAll('[data-open-file]').forEach(link => {
 
     const id = link.getAttribute('data-open-file');
     const file = (db.taskFiles || []).find(f => String(f.id) === String(id));
-    if(!file) return;
+    if (!file) return;
 
     const url = await getTaskFileUrl(file.filePath);
-    if(!url){
+    if (!url) {
       alert('Nepavyko atidaryti failo.');
       return;
     }
 
-    const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    if (isPhone) {
-      window.location.href = url;
-    } else {
-      window.open(url, '_blank');
-    }
+    window.location.assign(url);
   };
 });
 }
