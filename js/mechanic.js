@@ -15,27 +15,38 @@ function renderMechanicView(user){
         </div>
       </div>
 
-      <div class="tabs" style="margin-top:10px">
-        ${tabBtn('tasks','Užduotys',view)}
-        ${tabBtn('lube','Tepimai',view)}
-        ${tabBtn('notes','Pastabos',view)}
-        ${tabBtn('password','Slaptažodis',view)}
-      </div>
+<div class="tabs" style="margin-top:10px">
+  ${tabBtn('tasks','Bendros užduotys',view)}
+  ${tabBtn('mytasks','Asmeninės užduotys',view)}
+  ${tabBtn('lube','Tepimai',view)}
+  ${tabBtn('notes','Pastabos',view)}
+  ${tabBtn('password','Slaptažodis',view)}
+</div>
     </div>
 
-    ${view === 'tasks' ? mechanicTasks(user) : ''}
-    ${view === 'lube' ? mechanicLube(user) : ''}
-    ${view === 'notes' ? mechanicNotes(user) : ''}
-    ${view === 'password' ? changePasswordUI(user) : ''}
+${view === 'tasks' ? mechanicTasks(user, 'shared') : ''}
+${view === 'mytasks' ? mechanicTasks(user, 'personal') : ''}
+${view === 'lube' ? mechanicLube(user) : ''}
+${view === 'notes' ? mechanicNotes(user) : ''}
+${view === 'password' ? changePasswordUI(user) : ''}
   `;
 }
 
-function mechanicTasks(user){
+function mechanicTasks(user, mode = 'shared'){
   const myId = String(user.id || '');
   const myName = String(user.display || user.username || '').trim().toLowerCase();
 
-  const active = sortNewestFirst(mechanicVisibleTasks(myId));
+  const allActive = sortNewestFirst(mechanicVisibleTasks(myId));
   const waiting = sortNewestFirst(mechanicWaitingTasks(myId));
+
+  const active = allActive.filter(t => {
+    const assigned = Array.isArray(t.assignedTo) ? t.assignedTo.map(String) : [];
+    const isPersonal = !t.shared && assigned.includes(myId);
+    const isShared = !!t.shared || assigned.length === 0;
+
+    return mode === 'personal' ? isPersonal : isShared;
+  });
+
   const unseen = active.filter(t => !isSeen(t, myId));
 
   const mechUsers = (db.users || [])
@@ -322,14 +333,16 @@ function mechanicTasks(user){
     ${createHtml}
 
     <div class="card">
-      <h3 style="margin-top:0">Aktyvios užduotys</h3>
+      <h3 style="margin-top:0">${mode === 'personal' ? 'Asmeninės užduotys' : 'Bendros užduotys'}</h3>
     </div>
     ${activeCards}
 
-    <div class="card">
-      <h3 style="margin-top:0">Laukiančios užduotys</h3>
-    </div>
-    ${waitingCards}
+    ${mode === 'shared' ? `
+      <div class="card">
+        <h3 style="margin-top:0">Laukiančios užduotys</h3>
+      </div>
+      ${waitingCards}
+    ` : ''}
   `;
 }
 
@@ -588,10 +601,10 @@ function bindMechanicView(user){
 
   const view = db.session?.mechView || 'tasks';
 
-  if(view === 'tasks'){
-    bindMechanicTasks(user);
-    bindTaskFileUploads(user);
-  }
+if(view === 'tasks' || view === 'mytasks'){
+  bindMechanicTasks(user);
+  bindTaskFileUploads(user);
+}
 
   if(view === 'lube'){
     bindMechanicLube(user);

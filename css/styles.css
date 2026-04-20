@@ -343,7 +343,7 @@ th, td{padding:10px; border-bottom:1px solid var(--border); text-align:left; ver
 }
 
 .taskCard.danger{
-  background:#db5f5f;
+  background:#d68f8f;
   border-color:#d6e724;
 }
 
@@ -539,7 +539,7 @@ th, td{padding:10px; border-bottom:1px solid var(--border); text-align:left; ver
 }
 
 .mech-badge.open{
-  color:#9a3412;
+  color:#a54e31;
   border-color:#fed7aa;
   background:#fff7ed;
 }

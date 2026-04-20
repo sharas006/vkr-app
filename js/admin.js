@@ -315,6 +315,11 @@ function adminTasks(){
     .map(e => `<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
     .join('');
 
+  const mechanicOpts = (db.users || [])
+    .filter(u => String(u.role || '').trim().toLowerCase() === 'mechanic')
+    .map(u => `<option value="${u.id}">${escapeHtml(u.display || u.username)}</option>`)
+    .join('');
+
   const rows = tasks.length ? tasks.map(t => {
     const expanded = isTaskExpanded(`admin-task-${t.id}`);
     const done = t.status === 'Perduota tvirtinimui' || t.status === 'Patvirtinta';
@@ -328,6 +333,10 @@ function adminTasks(){
         `).join('')}
       </div>
     ` : '';
+
+    const assignedNames = Array.isArray(t.assignedTo)
+      ? t.assignedTo.map(id => userDisplay(id)).filter(Boolean)
+      : [];
 
     return `
       <div class="${cardClass}">
@@ -352,6 +361,7 @@ function adminTasks(){
           ` : ''}
 
           <div style="margin-top:8px"><b>Sukūrė:</b> ${escapeHtml(t.createdBy || '—')}</div>
+          <div style="margin-top:6px"><b>Priskyrimas:</b> ${t.shared ? 'Bendra visiems mechanikams' : escapeHtml(assignedNames.join(', ') || '—')}</div>
           <div style="margin-top:6px"><b>Įkelta:</b> ${escapeHtml(fmt(t.createdAt) || '—')} (${escapeHtml(timeAgo(t.createdAt))})</div>
 
           ${progressHtml}
@@ -377,7 +387,7 @@ function adminTasks(){
     <div class="card">
       <h3 style="margin-top:0">Aktyvios užduotys</h3>
 
-      <div class="row" style="grid-template-columns:repeat(5, minmax(0, 1fr)); gap:12px;">
+      <div class="row" style="grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px;">
         <div>
           <div class="muted">Technika</div>
           <select id="ntEquipId">
@@ -397,13 +407,29 @@ function adminTasks(){
         </div>
 
         <div>
+          <div class="muted">Priskyrimas</div>
+          <select id="ntAssignMode">
+            <option value="shared">Bendra visiems</option>
+            <option value="single">Priskirti mechanikui</option>
+          </select>
+        </div>
+
+        <div id="ntMechanicWrap" class="hidden">
+          <div class="muted">Mechanikas</div>
+          <select id="ntMechanicId">
+            <option value="">— Pasirink mechaniką —</option>
+            ${mechanicOpts}
+          </select>
+        </div>
+
+        <div>
           <div class="muted">Nuotrauka</div>
           <input type="file" id="ntFile" accept="image/*">
         </div>
+      </div>
 
-        <div class="right" style="align-items:flex-end">
-          <button class="btn primary" id="ntSave">Sukurti užduotį</button>
-        </div>
+      <div class="right" style="margin-top:12px; align-items:flex-end">
+        <button class="btn primary" id="ntSave">Sukurti užduotį</button>
       </div>
 
       <div class="muted" style="font-size:12px;margin-top:8px" id="ntMsg"></div>
@@ -427,8 +453,23 @@ function bindAdminTasks(){
   const equipEl = document.getElementById('ntEquipId');
   const titleEl = document.getElementById('ntTitle');
   const commentEl = document.getElementById('ntComment');
+  const assignModeEl = document.getElementById('ntAssignMode');
+  const mechanicWrapEl = document.getElementById('ntMechanicWrap');
+  const mechanicEl = document.getElementById('ntMechanicId');
   const fileEl = document.getElementById('ntFile');
   const msg = document.getElementById('ntMsg');
+
+  function refreshAssignUi(){
+    const mode = assignModeEl?.value || 'shared';
+    if(mechanicWrapEl){
+      mechanicWrapEl.classList.toggle('hidden', mode !== 'single');
+    }
+  }
+
+  if(assignModeEl){
+    assignModeEl.onchange = refreshAssignUi;
+    refreshAssignUi();
+  }
 
   if(saveBtn){
     saveBtn.onclick = async ()=>{
@@ -437,6 +478,8 @@ function bindAdminTasks(){
       const equipId = safeTrim(equipEl?.value || '');
       const title = safeTrim(titleEl?.value || '');
       const initialComment = safeTrim(commentEl?.value || '');
+      const assignMode = safeTrim(assignModeEl?.value || 'shared');
+      const mechanicId = safeTrim(mechanicEl?.value || '');
 
       if(!equipId){
         if(msg) msg.textContent = 'Pasirink techniką.';
@@ -448,12 +491,20 @@ function bindAdminTasks(){
         return;
       }
 
+      if(assignMode === 'single' && !mechanicId){
+        if(msg) msg.textContent = 'Pasirink mechaniką.';
+        return;
+      }
+
+      const shared = assignMode !== 'single';
+      const assignedTo = shared ? [] : [mechanicId];
+
       const savedTask = await createTaskInSupabase({
         equipId,
         title,
         status: 'Nauja',
-        shared: true,
-        assignedTo: [],
+        shared,
+        assignedTo,
         source: 'admin',
         initialComment,
         createdBy: currentUser()?.display || currentUser()?.username || '',
@@ -488,8 +539,11 @@ function bindAdminTasks(){
       if(equipEl) equipEl.value = '';
       if(titleEl) titleEl.value = '';
       if(commentEl) commentEl.value = '';
+      if(assignModeEl) assignModeEl.value = 'shared';
+      if(mechanicEl) mechanicEl.value = '';
       if(fileEl) fileEl.value = '';
 
+      refreshAssignUi();
       saveDB_local(db);
       render();
     };
@@ -2876,188 +2930,6 @@ function mechanicApprovalRows(){
 }
 
 function adminMechanicAnalysis(){
-  const selectedUser = safeTrim(db.session?.adminAnalyticsUser || '');
-  const dateFrom = safeTrim(db.session?.adminAnalyticsDateFrom || '');
-  const dateTo = safeTrim(db.session?.adminAnalyticsDateTo || '');
-
-  const mechanics = usersByRole('mechanic');
-  const allRows = mechanicApprovalRows();
-
-  const filtered = allRows.filter(item => {
-    const itemDate = analyticsApprovalDate(item);
-    const byUser = !selectedUser || String(item.doneById || '') === String(selectedUser);
-    const byFrom = !dateFrom || (itemDate && itemDate >= dateFrom);
-    const byTo = !dateTo || (itemDate && itemDate <= dateTo);
-    return byUser && byFrom && byTo;
-  });
-
-  const totalsByMechanic = {};
-  filtered.forEach(item => {
-    const key = String(item.doneById || item.doneBy || '—');
-    if(!totalsByMechanic[key]){
-      totalsByMechanic[key] = {
-        key,
-        doneById: item.doneById || null,
-        doneBy: item.doneBy || '—',
-        count: 0,
-        durationMin: 0,
-        commented: 0,
-        helperUses: 0,
-        uniqueHelpers: new Set(),
-        equipment: new Set()
-      };
-    }
-
-    const row = totalsByMechanic[key];
-    row.count += 1;
-    row.durationMin += Number(item.durationMin || 0);
-    if(safeTrim(item.comment || '')) row.commented += 1;
-    if((item.helpers || []).length) row.helperUses += 1;
-    (item.helpers || []).forEach(h => row.uniqueHelpers.add(h));
-    if(item.equipId) row.equipment.add(labelEquip(item.equipId));
-  });
-
-  const totalCount = filtered.length;
-  const summaryRows = Object.values(totalsByMechanic)
-    .sort((a,b) => {
-      if((b.count || 0) !== (a.count || 0)) return (b.count || 0) - (a.count || 0);
-      return String(a.doneBy || '').localeCompare(String(b.doneBy || ''), 'lt');
-    });
-
-  const summaryHtml = summaryRows.length ? summaryRows.map(row => {
-    const percent = totalCount ? Math.round((row.count / totalCount) * 100) : 0;
-    return `
-      <tr>
-        <td>${escapeHtml(row.doneBy || '—')}</td>
-        <td>${row.count}</td>
-        <td>${percent}%</td>
-        <td>${escapeHtml(fmtMinutes(row.durationMin) || '—')}</td>
-        <td>${row.commented}</td>
-        <td>${row.helperUses}</td>
-        <td>${row.uniqueHelpers.size}</td>
-        <td>${row.equipment.size}</td>
-      </tr>
-    `;
-  }).join('') : `<tr><td colspan="8" class="muted">Įrašų nerasta</td></tr>`;
-
-  const detailHtml = filtered.length ? filtered.map(item => {
-    const expanded = isTaskExpanded(`admin-analytics-${item.id}`);
-    return `
-      <div class="taskCard">
-        <div class="taskHead" data-toggle-admin-analytics="${item.id}">
-          <div class="taskHeadLeft">
-            <div class="taskMeta">${escapeHtml(labelEquip(item.equipId) || '—')}</div>
-            <div class="taskTitle">${escapeHtml(item.title || item.issue || '—')}</div>
-            <div class="taskSummary">
-              ${escapeHtml(item.doneBy || '—')} • ${escapeHtml(analyticsApprovalDate(item) || '—')} • ${escapeHtml(fmtMinutes(item.durationMin) || '—')}
-            </div>
-          </div>
-          <div class="taskRight">
-            <span class="taskBadge">Atlikta</span>
-            <span class="taskCaret">${expanded ? '▲' : '▼'}</span>
-          </div>
-        </div>
-
-        <div class="taskBody ${expanded ? '' : 'hidden'}">
-          <div><b>Mechanikas:</b> ${escapeHtml(item.doneBy || '—')}</div>
-          <div style="margin-top:6px"><b>Data:</b> ${escapeHtml(analyticsApprovalDate(item) || '—')}</div>
-          <div style="margin-top:6px"><b>Technika:</b> ${escapeHtml(labelEquip(item.equipId) || '—')}</div>
-          <div style="margin-top:6px"><b>Trukmė:</b> ${escapeHtml(fmtMinutes(item.durationMin) || '—')}</div>
-          ${item.comment ? `<div style="margin-top:8px"><b>Atlikimo komentaras:</b> ${escapeHtml(item.comment)}</div>` : ''}
-          ${(item.helpers || []).length ? `<div style="margin-top:8px"><b>Padėjo:</b> ${escapeHtml((item.helpers || []).map(h => userDisplay(h)).join(', '))}</div>` : ''}
-          <div style="margin-top:8px"><b>Failai:</b></div>
-          <div style="margin-top:4px">${completedFilesHtml(item.taskId)}</div>
-        </div>
-      </div>
-    `;
-  }).join('') : '<div class="card"><div class="muted">Pagal pasirinktą filtrą įrašų nerasta.</div></div>';
-
-  const selectedMechanic = mechanics.find(m => String(m.id) === String(selectedUser));
-  const selectedMechanicLabel = selectedUser
-    ? (selectedMechanic?.display || selectedMechanic?.username || '—')
-    : 'Visi mechanikai';
-
-  return `
-    <div class="card">
-      <div class="headerline">
-        <h3 style="margin:0">Mechanikų analizė</h3>
-        <div class="muted">Iš viso atlikta: ${totalCount}</div>
-      </div>
-
-      <div class="row row-4" style="margin-top:12px">
-        <div>
-          <div class="muted">Mechanikas</div>
-          <select id="adminAnalyticsUser">
-            <option value="">— Visi mechanikai —</option>
-            ${mechanics.map(m => `
-              <option value="${m.id}" ${String(selectedUser) === String(m.id) ? 'selected' : ''}>
-                ${escapeHtml(m.display || m.username)}
-              </option>
-            `).join('')}
-          </select>
-        </div>
-
-        <div>
-          <div class="muted">Data nuo</div>
-          <input type="date" id="adminAnalyticsDateFrom" value="${escapeHtml(dateFrom)}">
-        </div>
-
-        <div>
-          <div class="muted">Data iki</div>
-          <input type="date" id="adminAnalyticsDateTo" value="${escapeHtml(dateTo)}">
-        </div>
-
-        <div class="right" style="align-items:flex-end">
-          <button class="btn" id="adminAnalyticsClear">Išvalyti filtrą</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="kpi">
-      <div class="card">
-        <div class="muted">Aktyvūs mechanikai</div>
-        <h2>${summaryRows.length}</h2>
-      </div>
-      <div class="card">
-        <div class="muted">Visos atliktos užduotys</div>
-        <h2>${totalCount}</h2>
-      </div>
-      <div class="card">
-        <div class="muted">Su komentaru</div>
-        <h2>${filtered.filter(x => safeTrim(x.comment || '')).length}</h2>
-      </div>
-      <div class="card">
-        <div class="muted">Su pagalbininkais</div>
-        <h2>${filtered.filter(x => (x.helpers || []).length).length}</h2>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 style="margin-top:0">${escapeHtml(selectedMechanicLabel)} — suvestinė</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Mechanikas</th>
-            <th>Užduočių</th>
-            <th>Dalis</th>
-            <th>Trukmė</th>
-            <th>Su komentaru</th>
-            <th>Kur padėjo kiti</th>
-            <th>Skirtingų pagalbininkų</th>
-            <th>Skirtingos technikos</th>
-          </tr>
-        </thead>
-        <tbody>${summaryHtml}</tbody>
-      </table>
-    </div>
-
-    <div>
-      ${detailHtml}
-    </div>
-  `;
-}
-
-function adminMechanicAnalysis(){
   const mechanics = (db.users || [])
     .filter(u => String(u.role || '').trim().toLowerCase() === 'mechanic')
     .sort((a, b) => {
@@ -3132,6 +3004,42 @@ function adminMechanicAnalysis(){
       </table>
     </div>
   `;
+}
+
+function bindAdminMechanicAnalysis(){
+  document.querySelectorAll('[data-toggle-admin-analytics]').forEach(btn => {
+    btn.onclick = ()=>{
+      const id = btn.getAttribute('data-toggle-admin-analytics');
+      toggleTaskExpanded(`admin-analytics-${id}`);
+    };
+  });
+
+  const userEl = document.getElementById('adminAnalyticsUser');
+  const fromEl = document.getElementById('adminAnalyticsDateFrom');
+  const toEl = document.getElementById('adminAnalyticsDateTo');
+  const clearBtn = document.getElementById('adminAnalyticsClear');
+
+  function apply(){
+    if(!db.session) db.session = {};
+    db.session.adminAnalyticsUser = userEl?.value || '';
+    db.session.adminAnalyticsDateFrom = fromEl?.value || '';
+    db.session.adminAnalyticsDateTo = toEl?.value || '';
+    saveDB_local(db);
+    render();
+  }
+
+  if(userEl) userEl.onchange = apply;
+  if(fromEl) fromEl.onchange = apply;
+  if(toEl) toEl.onchange = apply;
+
+  if(clearBtn){
+    clearBtn.onclick = ()=>{
+      if(userEl) userEl.value = '';
+      if(fromEl) fromEl.value = '';
+      if(toEl) toEl.value = '';
+      apply();
+    };
+  }
 }
 
 function historyNormalize(v){
