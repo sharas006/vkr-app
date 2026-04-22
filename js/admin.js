@@ -125,7 +125,9 @@ function bindAdminView(user){
   const view = db.session.adminView || 'tasks';
 
   if(view === 'users') bindAdminUsers();
-  if(view === 'equip') bindAdminEquip();
+  if(view === 'equip') {
+  bindAdminEquip();
+}
   if(view === 'tasks') bindAdminTasks();
   if(view === 'waiting') bindAdminWaitingTasks();
   if(view === 'approvals') bindAdminApprovals();
@@ -1638,390 +1640,13 @@ function bindAdminDevices(){
     };
   }
 }
-function adminChecklists(){
-  const rows = (db.equipment || []).map(e => `
-    <tr>
-      <td>${escapeHtml(e.type || '')}</td>
-      <td>${escapeHtml(e.num || '')}</td>
-      <td>${escapeHtml(e.name || '')}</td>
-      <td>${escapeHtml(e.model || '')}</td>
-      <td class="right">
-        <button class="btn" data-edit-cl-equip="${e.id}">Keisti</button>
-        <button class="btn" data-open-cl-checklist="${e.id}">Patikra</button>
-      </td>
-    </tr>
-  `).join('') || `<tr><td colspan="5" class="muted">Technikos nėra</td></tr>`;
-
-  const selectedEquip = (db.equipment || []).find(
-    e => String(e.id) === String(db.session?.editChecklistEquipId || '')
-  );
-
-  const checklist = selectedEquip
-    ? (db.equipmentChecklists?.[selectedEquip.id] || [])
-    : [];
-
-  const checklistHtml = !selectedEquip
-    ? `<div class="muted">Pasirink techniką iš lentelės mygtuku <b>Patikra</b>.</div>`
-    : (checklist.length
-        ? checklist.map((item, idx) => `
-            <div class="check-admin-row">
-              <div><b>${idx + 1}.</b> ${escapeHtml(item.text || '')}</div>
-              <div class="right">
-                <button class="btn" data-cl-up="${idx}">↑</button>
-                <button class="btn" data-cl-down="${idx}">↓</button>
-                <button class="btn" data-cl-del="${idx}">Trinti</button>
-              </div>
-            </div>
-          `).join('')
-        : `<div class="muted">Šiai technikai dar nėra atskirų patikros punktų. Operatoriui bus rodomas numatytas sąrašas.</div>`);
-
-  return `
-    <div class="card" id="clTopCard">
-      <h3 style="margin-top:0">Pridėti / keisti techniką</h3>
-
-      <div class="row">
-        <div>
-          <div class="muted">Tipas</div>
-          <input id="clType" placeholder="pvz. Liebherr">
-        </div>
-
-        <div>
-          <div class="muted">Nr.</div>
-          <input id="clNum" placeholder="pvz. 03">
-        </div>
-
-        <div>
-          <div class="muted">Pavadinimas</div>
-          <input id="clName" placeholder="pvz. LHM400">
-        </div>
-
-        <div>
-          <div class="muted">Modelis</div>
-          <input id="clModel" placeholder="pvz. LHM 400">
-        </div>
-
-        <input type="hidden" id="clId">
-
-        <div class="right">
-          <button class="btn" id="clClear">Išvalyti</button>
-          <button class="btn primary" id="clSave">Išsaugoti</button>
-        </div>
-
-        <div class="muted" style="font-size:12px" id="clMsg"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 style="margin-top:0">Technika</h3>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Tipas</th>
-            <th>Nr.</th>
-            <th>Pavadinimas</th>
-            <th>Modelis</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" id="clChecklistCard">
-      <div class="headerline">
-        <h3 style="margin:0">Patikros punktai</h3>
-        <div class="muted">
-          ${selectedEquip ? `Technika: <b>${escapeHtml(labelEquip(selectedEquip.id))}</b>` : 'Technika nepasirinkta'}
-        </div>
-      </div>
-
-      <div style="margin-top:12px" id="clList">
-        ${checklistHtml}
-      </div>
-
-      <div style="margin-top:14px">
-        <div class="muted">Naujas punktas</div>
-        <input id="clNewItem" placeholder="Pvz. Vizualinė apžiūra: strėlės mazgai">
-      </div>
-
-      <div class="right" style="margin-top:10px; gap:8px">
-        <button class="btn" id="clClearSelection">Nuimti pasirinkimą</button>
-        <button class="btn" id="clLoadDefault">Užkrauti default</button>
-        <button class="btn primary" id="clAdd">Pridėti punktą</button>
-      </div>
-
-      <div class="muted" style="font-size:12px; margin-top:8px" id="clChecklistMsg"></div>
-    </div>
-  `;
-}
-
-function bindAdminChecklists(){
-  const idEl = document.getElementById('clId');
-  const tEl = document.getElementById('clType');
-  const nEl = document.getElementById('clNum');
-  const nmEl = document.getElementById('clName');
-  const mEl = document.getElementById('clModel');
-  const msgEl = document.getElementById('clMsg');
-
-  const inputEl = document.getElementById('clNewItem');
-  const checklistMsgEl = document.getElementById('clChecklistMsg');
-
-  const defaultChecklist = [
-    'Variklio tepalas',
-    'Hidraulikos tepalas',
-    'Greičių dėžės tepalas',
-    'Aušinimo skystis',
-    'Langų apiplovimo skystis',
-    'Tepimo bakelio papildymas',
-    'Vizualinė apžiūra: mašinos',
-    'Vizualinė apžiūra: hidraulinių žarnų',
-    'Vizualinė apžiūra: ratų',
-    'Rankinis tepimo taškų pratepimas',
-    'Pridėti nuo savęs'
-  ];
-
-  function clearForm(){
-    if(idEl) idEl.value = '';
-    if(tEl) tEl.value = '';
-    if(nEl) nEl.value = '';
-    if(nmEl) nmEl.value = '';
-    if(mEl) mEl.value = '';
-    if(msgEl) msgEl.textContent = '';
-  }
-
-  function scrollToTopCard(){
-    const topCard = document.getElementById('clTopCard');
-    if(topCard){
-      topCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }
-
-  function scrollToChecklistCard(){
-    const checklistCard = document.getElementById('clChecklistCard');
-    if(checklistCard){
-      checklistCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }
-
-  function ensureChecklistArray(equipId){
-    if(!db.equipmentChecklists) db.equipmentChecklists = {};
-    if(!db.equipmentChecklists[equipId]) db.equipmentChecklists[equipId] = [];
-    return db.equipmentChecklists[equipId];
-  }
-
-  async function saveChecklist(equipId, arr){
-    const ok = await replaceEquipmentChecklistInSupabase(equipId, arr);
-    if(!ok){
-      if(checklistMsgEl) checklistMsgEl.textContent = 'Nepavyko išsaugoti šablono.';
-      return false;
-    }
-
-    if(!db.equipmentChecklists) db.equipmentChecklists = {};
-    db.equipmentChecklists[equipId] = arr;
-    saveDB_local(db);
-    render();
-    return true;
-  }
-
-  const clearBtn = document.getElementById('clClear');
-  if(clearBtn){
-    clearBtn.onclick = clearForm;
-  }
-
-  document.querySelectorAll('[data-edit-cl-equip]').forEach(btn => {
-    btn.onclick = ()=>{
-      const id = btn.getAttribute('data-edit-cl-equip');
-      const e = (db.equipment || []).find(x => String(x.id) === String(id));
-      if(!e) return;
-
-      if(idEl) idEl.value = e.id || '';
-      if(tEl) tEl.value = e.type || '';
-      if(nEl) nEl.value = e.num || '';
-      if(nmEl) nmEl.value = e.name || '';
-      if(mEl) mEl.value = e.model || '';
-      if(msgEl) msgEl.textContent = 'Redaguoji: ' + labelEquip(e.id);
-
-      scrollToTopCard();
-    };
-  });
-
-  document.querySelectorAll('[data-open-cl-checklist]').forEach(btn => {
-    btn.onclick = ()=>{
-      const equipId = btn.getAttribute('data-open-cl-checklist');
-      db.session.editChecklistEquipId = equipId;
-      saveDB_local(db);
-      render();
-
-      setTimeout(() => {
-        scrollToChecklistCard();
-      }, 50);
-    };
-  });
-
-  document.querySelectorAll('[data-cl-up]').forEach(btn => {
-    btn.onclick = async ()=>{
-      const equipId = db.session?.editChecklistEquipId;
-      if(!equipId) return;
-
-      const idx = Number(btn.getAttribute('data-cl-up'));
-      const arr = ensureChecklistArray(equipId).slice();
-      if(idx <= 0) return;
-
-      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
-      await saveChecklist(equipId, arr);
-    };
-  });
-
-  document.querySelectorAll('[data-cl-down]').forEach(btn => {
-    btn.onclick = async ()=>{
-      const equipId = db.session?.editChecklistEquipId;
-      if(!equipId) return;
-
-      const idx = Number(btn.getAttribute('data-cl-down'));
-      const arr = ensureChecklistArray(equipId).slice();
-      if(idx >= arr.length - 1) return;
-
-      [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
-      await saveChecklist(equipId, arr);
-    };
-  });
-
-  document.querySelectorAll('[data-cl-del]').forEach(btn => {
-    btn.onclick = async ()=>{
-      const equipId = db.session?.editChecklistEquipId;
-      if(!equipId) return;
-
-      const idx = Number(btn.getAttribute('data-cl-del'));
-      const arr = ensureChecklistArray(equipId).slice();
-      arr.splice(idx, 1);
-      await saveChecklist(equipId, arr);
-    };
-  });
-
-  const clearChecklistBtn = document.getElementById('clClearSelection');
-  if(clearChecklistBtn){
-    clearChecklistBtn.onclick = ()=>{
-      db.session.editChecklistEquipId = null;
-      saveDB_local(db);
-      render();
-    };
-  }
-
-  const addBtn = document.getElementById('clAdd');
-  if(addBtn){
-    addBtn.onclick = async ()=>{
-      const equipId = db.session?.editChecklistEquipId;
-      const text = safeTrim(inputEl?.value || '');
-
-      if(!equipId){
-        if(checklistMsgEl) checklistMsgEl.textContent = 'Pirma pasirink techniką.';
-        return;
-      }
-
-      if(!text){
-        if(checklistMsgEl) checklistMsgEl.textContent = 'Įrašyk naują punktą.';
-        return;
-      }
-
-      const arr = ensureChecklistArray(equipId).slice();
-      arr.push({ id: 'chkitem-' + rid(), text });
-
-      const ok = await saveChecklist(equipId, arr);
-      if(ok && inputEl) inputEl.value = '';
-    };
-  }
-
-  const defaultBtn = document.getElementById('clLoadDefault');
-  if(defaultBtn){
-    defaultBtn.onclick = async ()=>{
-      const equipId = db.session?.editChecklistEquipId;
-
-      if(!equipId){
-        if(checklistMsgEl) checklistMsgEl.textContent = 'Pirma pasirink techniką.';
-        return;
-      }
-
-      const arr = defaultChecklist.map(text => ({
-        id: 'chkitem-' + rid(),
-        text
-      }));
-
-      await saveChecklist(equipId, arr);
-    };
-  }
-
-  const saveBtn = document.getElementById('clSave');
-  if(saveBtn){
-    saveBtn.onclick = async ()=>{
-      const id = safeTrim(idEl?.value || '');
-      const type = safeTrim(tEl?.value || '');
-      const num = safeTrim(nEl?.value || '');
-      const name = safeTrim(nmEl?.value || '');
-      const model = safeTrim(mEl?.value || '');
-
-      if(!type){
-        if(msgEl) msgEl.textContent = 'Reikia tipo.';
-        return;
-      }
-
-      if(!num){
-        if(msgEl) msgEl.textContent = 'Reikia numerio.';
-        return;
-      }
-
-      if(id){
-        const updated = await updateEquipmentInSupabase(id, { type, num, name, model });
-        if(!updated){
-          if(msgEl) msgEl.textContent = 'Nepavyko atnaujinti technikos.';
-          return;
-        }
-
-        const idx = (db.equipment || []).findIndex(x => String(x.id) === String(id));
-        if(idx >= 0) db.equipment[idx] = updated;
-
-        if(msgEl) msgEl.textContent = 'Technika atnaujinta.';
-      } else {
-        const saved = await createEquipmentInSupabase({
-          id: 'eq-' + rid(),
-          type,
-          num,
-          name,
-          model
-        });
-
-        if(!saved){
-          if(msgEl) msgEl.textContent = 'Nepavyko sukurti technikos.';
-          return;
-        }
-
-        db.equipment = db.equipment || [];
-        db.equipment.push(saved);
-
-        if(msgEl) msgEl.textContent = 'Technika pridėta.';
-      }
-
-      saveDB_local(db);
-      clearForm();
-      render();
-
-      setTimeout(() => {
-        scrollToTopCard();
-      }, 50);
-    };
-  }
-}
 
   function bindChecklistRowActions(){
     document.querySelectorAll('[data-cl-up]').forEach(btn => {
       btn.onclick = async ()=>{
         const equipId = safeTrim(eqEl?.value || '');
         const idx = Number(btn.getAttribute('data-cl-up'));
-        const arr = (db.equipmentChecklists?.[equipId] || []).slice();
+        const arr = collectChecklistFromInputs(equipId);
         if(idx <= 0) return;
 
         [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
@@ -2033,7 +1658,7 @@ function bindAdminChecklists(){
       btn.onclick = async ()=>{
         const equipId = safeTrim(eqEl?.value || '');
         const idx = Number(btn.getAttribute('data-cl-down'));
-        const arr = (db.equipmentChecklists?.[equipId] || []).slice();
+        const arr = collectChecklistFromInputs(equipId);
         if(idx >= arr.length - 1) return;
 
         [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
@@ -2045,12 +1670,12 @@ function bindAdminChecklists(){
       btn.onclick = async ()=>{
         const equipId = safeTrim(eqEl?.value || '');
         const idx = Number(btn.getAttribute('data-cl-del'));
-        const arr = (db.equipmentChecklists?.[equipId] || []).slice();
+        const arr = collectChecklistFromInputs(equipId);
         arr.splice(idx, 1);
         await saveChecklist(equipId, arr);
       };
     });
-  }
+}
 
 function adminUsers(){
   if(!db.session) db.session = {};
@@ -2365,11 +1990,20 @@ function adminEquip(){
     : (checklist.length
         ? checklist.map((item, idx) => `
             <div class="check-admin-row">
-              <div><b>${idx + 1}.</b> ${escapeHtml(item.text || '')}</div>
+              <div style="flex:1">
+                <div><b>${idx + 1}.</b></div>
+
+                <div class="small muted" style="margin-top:6px">LT</div>
+                <input type="text" data-cl-lt="${idx}" value="${escapeHtml(item.textLt || item.text || '')}">
+
+                <div class="small muted" style="margin-top:8px">RU</div>
+                <input type="text" data-cl-ru="${idx}" value="${escapeHtml(item.textRu || '')}">
+              </div>
+
               <div class="right">
-                <button class="btn" data-check-up="${idx}">↑</button>
-                <button class="btn" data-check-down="${idx}">↓</button>
-                <button class="btn" data-check-del="${idx}">Trinti</button>
+                <button class="btn" data-cl-up="${idx}">↑</button>
+                <button class="btn" data-cl-down="${idx}">↓</button>
+                <button class="btn" data-cl-del="${idx}">Trinti</button>
               </div>
             </div>
           `).join('')
@@ -2382,7 +2016,7 @@ function adminEquip(){
   `).join('');
 
   return `
-    <div class="card">
+    <div class="card" id="equipTopCard">
       <div class="tabs" style="display:flex; gap:8px; flex-wrap:wrap">
         <button class="btn ${sub === 'equip' ? 'primary' : ''}" data-equip-sub="equip">Technika</button>
         <button class="btn ${sub === 'checklists' ? 'primary' : ''}" data-equip-sub="checklists">Patikros šablonai</button>
@@ -2390,43 +2024,8 @@ function adminEquip(){
     </div>
 
     ${sub === 'equip' ? `
-      <div class="card" id="equipTopCard">
-        <h3 style="margin-top:0">Pridėti / keisti techniką</h3>
-
-        <div class="row">
-          <div>
-            <div class="muted">Tipas</div>
-            <input id="eType" placeholder="pvz. Liebherr">
-          </div>
-
-          <div>
-            <div class="muted">Nr.</div>
-            <input id="eNum" placeholder="pvz. 03">
-          </div>
-
-          <div>
-            <div class="muted">Pavadinimas</div>
-            <input id="eName" placeholder="pvz. LHM400">
-          </div>
-
-          <div>
-            <div class="muted">Modelis</div>
-            <input id="eModel" placeholder="pvz. LHM 400">
-          </div>
-
-          <input type="hidden" id="eId">
-
-          <div class="right">
-            <button class="btn" id="eClear">Išvalyti</button>
-            <button class="btn primary" id="eSave">Išsaugoti</button>
-          </div>
-
-          <div class="muted" style="font-size:12px" id="eMsg"></div>
-        </div>
-      </div>
-
       <div class="card">
-        <h3 style="margin-top:0">Technika</h3>
+        <h3 style="margin-top:0">Technikos sąrašas</h3>
         <table>
           <thead>
             <tr>
@@ -2440,30 +2039,73 @@ function adminEquip(){
           <tbody>${rows}</tbody>
         </table>
       </div>
-    ` : `
-      <div class="card" id="checklistCard">
-        <div class="headerline">
-          <h3 style="margin:0">Patikros šablonai</h3>
-          <div class="muted">
-            ${selectedEquip ? `Technika: <b>${escapeHtml(labelEquip(selectedEquip.id))}</b>` : 'Technika nepasirinkta'}
+
+      <div class="card">
+        <h3 style="margin-top:0">Pridėti / redaguoti techniką</h3>
+
+        <input type="hidden" id="eId">
+
+        <div class="row row-4">
+          <div>
+            <div class="muted">Tipas</div>
+            <input id="eType" placeholder="Pvz. Krautuvas">
+          </div>
+
+          <div>
+            <div class="muted">Nr.</div>
+            <input id="eNum" placeholder="Pvz. 106">
+          </div>
+
+          <div>
+            <div class="muted">Pavadinimas</div>
+            <input id="eName" placeholder="Pvz. Hyundai">
+          </div>
+
+          <div>
+            <div class="muted">Modelis</div>
+            <input id="eModel" placeholder="Pvz. HL960A">
           </div>
         </div>
 
-        <div style="margin-top:12px">
-          <div class="muted">Technika</div>
-          <select id="checklistEquipSelect">
-            <option value="">— Pasirink techniką —</option>
-            ${equipOpts}
-          </select>
+        <div class="right" style="margin-top:12px">
+          <button class="btn" id="eClear">Išvalyti</button>
+          <button class="btn primary" id="eSave">Išsaugoti</button>
         </div>
 
-        <div style="margin-top:12px" id="checklistWrap">
+        <div class="muted" style="font-size:12px;margin-top:8px" id="eMsg"></div>
+      </div>
+    ` : `
+      <div class="card" id="checklistCard">
+        <div class="headerline" style="margin-bottom:10px">
+          <h3 style="margin:0">Patikros šablonai</h3>
+          <div class="muted">Technika: <b>${selectedEquip ? escapeHtml(labelEquip(selectedEquip.id)) : '—'}</b></div>
+        </div>
+
+        <div class="row row-2" style="margin-bottom:12px">
+          <div>
+            <div class="muted">Technika</div>
+            <select id="checklistEquipSelect">
+              <option value="">— Pasirink techniką —</option>
+              ${equipOpts}
+            </select>
+          </div>
+          <div></div>
+        </div>
+
+        <div class="note-list">
           ${checklistHtml}
         </div>
 
-        <div style="margin-top:14px">
-          <div class="muted">Naujas punktas</div>
-          <input id="newChecklistItem" placeholder="Pvz. Vizualinė apžiūra: strėlės mazgai">
+        <div class="row row-2" style="margin-top:16px">
+          <div>
+            <div class="muted">Naujas punktas LT</div>
+            <input id="newChecklistLt" placeholder="Pvz. Variklio tepalas">
+          </div>
+
+          <div>
+            <div class="muted">Naujas punktas RU</div>
+            <input id="newChecklistRu" placeholder="Напр. Моторное масло">
+          </div>
         </div>
 
         <div class="right" style="margin-top:10px; gap:8px">
@@ -2544,11 +2186,9 @@ function bindAdminEquip(){
         saveDB_local(db);
 
         await ensureDefaultChecklistForEquipment(equipId);
-        render();
 
-        setTimeout(() => {
-          scrollToChecklistCard();
-        }, 50);
+        render();
+        setTimeout(scrollToChecklistCard, 50);
       };
     });
 
@@ -2561,65 +2201,48 @@ function bindAdminEquip(){
         const name = safeTrim(nmEl?.value || '');
         const model = safeTrim(mEl?.value || '');
 
-        if(!type){
-          if(msg) msg.textContent = 'Reikia tipo.';
+        if(!type || !num){
+          if(msg) msg.textContent = 'Užpildyk bent tipą ir numerį.';
           return;
         }
 
-        if(!num){
-          if(msg) msg.textContent = 'Reikia numerio.';
-          return;
-        }
+        let updated = null;
 
         if(id){
-          const updated = await updateEquipmentInSupabase(id, { type, num, name, model });
-          if(!updated){
-            if(msg) msg.textContent = 'Nepavyko atnaujinti technikos.';
-            return;
-          }
-
-          const idx = (db.equipment || []).findIndex(x => String(x.id) === String(id));
-          if(idx >= 0) db.equipment[idx] = updated;
-
-          if(msg) msg.textContent = 'Technika atnaujinta.';
+          updated = await updateEquipmentInSupabase(id, { type, num, name, model });
         } else {
-          const saved = await createEquipmentInSupabase({
-            id: 'eq-' + rid(),
-            type,
-            num,
-            name,
-            model
-          });
+          updated = await createEquipmentInSupabase({ type, num, name, model });
+        }
 
-          if(!saved){
-            if(msg) msg.textContent = 'Nepavyko sukurti technikos.';
-            return;
-          }
+        if(!updated){
+          if(msg) msg.textContent = 'Nepavyko išsaugoti technikos.';
+          return;
+        }
 
+        const idx = (db.equipment || []).findIndex(x => String(x.id) === String(updated.id));
+        if(idx >= 0){
+          db.equipment[idx] = updated;
+        } else {
           db.equipment = db.equipment || [];
-          db.equipment.push(saved);
-
-          // naujai technikai iškart užkraunam default punktus
-          await ensureDefaultChecklistForEquipment(saved.id);
-
-          if(msg) msg.textContent = 'Technika pridėta.';
+          db.equipment.unshift(updated);
         }
 
         saveDB_local(db);
-        clear();
+        if(msg) msg.textContent = 'Išsaugota.';
         render();
-
-        setTimeout(() => {
-          scrollToTopCard();
-        }, 50);
+        setTimeout(scrollToTopCard, 50);
       };
     }
   }
 
   if(sub === 'checklists'){
-    const checklistMsg = document.getElementById('checklistMsg');
     const equipSelect = document.getElementById('checklistEquipSelect');
-    const newItemEl = document.getElementById('newChecklistItem');
+    const msgEl = document.getElementById('checklistMsg');
+    const newLtEl = document.getElementById('newChecklistLt');
+    const newRuEl = document.getElementById('newChecklistRu');
+    const clearEquipBtn = document.getElementById('clearChecklistEquip');
+    const loadDefaultBtn = document.getElementById('loadChecklistDefault');
+    const addBtn = document.getElementById('addChecklistItem');
 
     function ensureChecklistArray(equipId){
       if(!db.equipmentChecklists) db.equipmentChecklists = {};
@@ -2627,23 +2250,53 @@ function bindAdminEquip(){
       return db.equipmentChecklists[equipId];
     }
 
+    function collectChecklistFromInputs(equipId){
+      const current = ensureChecklistArray(equipId).slice();
+
+      return current.map((item, idx) => {
+        const ltEl = document.querySelector(`[data-cl-lt="${idx}"]`);
+        const ruEl = document.querySelector(`[data-cl-ru="${idx}"]`);
+
+        return {
+          ...item,
+          textLt: safeTrim(ltEl?.value || item.textLt || item.text || ''),
+          textRu: safeTrim(ruEl?.value || item.textRu || '')
+        };
+      }).filter(item => safeTrim(item.textLt || item.textRu || ''));
+    }
+
     async function saveChecklist(equipId, arr){
-      const ok = await replaceEquipmentChecklistInSupabase(equipId, arr);
-      if(!ok){
-        if(checklistMsg) checklistMsg.textContent = 'Nepavyko išsaugoti patikros šablono.';
+      if(!equipId){
+        if(msgEl) msgEl.textContent = 'Pirma pasirink techniką.';
         return false;
       }
 
-      db.equipmentChecklists[equipId] = arr;
+      const normalized = arr.map((item, idx) => ({
+        id: item.id || ('chkitem-' + rid()),
+        textLt: safeTrim(item.textLt || item.text || ''),
+        textRu: safeTrim(item.textRu || ''),
+        sortOrder: idx + 1
+      })).filter(item => item.textLt || item.textRu);
+
+      const ok = await replaceEquipmentChecklistInSupabase(equipId, normalized);
+      if(!ok){
+        if(msgEl) msgEl.textContent = 'Nepavyko išsaugoti patikros punktų.';
+        return false;
+      }
+
+      db.equipmentChecklists[equipId] = normalized;
       saveDB_local(db);
+
+      if(msgEl) msgEl.textContent = 'Išsaugota.';
       render();
+      setTimeout(scrollToChecklistCard, 50);
       return true;
     }
 
     if(equipSelect){
       equipSelect.onchange = async ()=>{
         const equipId = safeTrim(equipSelect.value || '');
-        db.session.editChecklistEquipId = equipId || null;
+        db.session.editChecklistEquipId = equipId || '';
         saveDB_local(db);
 
         if(equipId){
@@ -2651,20 +2304,74 @@ function bindAdminEquip(){
         }
 
         render();
-
-        setTimeout(() => {
-          scrollToChecklistCard();
-        }, 50);
+        setTimeout(scrollToChecklistCard, 50);
       };
     }
 
-    document.querySelectorAll('[data-check-up]').forEach(btn => {
+    if(clearEquipBtn){
+      clearEquipBtn.onclick = ()=>{
+        db.session.editChecklistEquipId = '';
+        saveDB_local(db);
+        render();
+      };
+    }
+
+    if(loadDefaultBtn){
+      loadDefaultBtn.onclick = async ()=>{
+        const equipId = safeTrim(db.session?.editChecklistEquipId || '');
+        if(!equipId){
+          if(msgEl) msgEl.textContent = 'Pirma pasirink techniką.';
+          return;
+        }
+
+        const arr = defaultChecklistTemplate().map(item => ({
+          id: 'chkitem-' + rid(),
+          textLt: item.textLt || '',
+          textRu: item.textRu || ''
+        }));
+
+        await saveChecklist(equipId, arr);
+      };
+    }
+
+    if(addBtn){
+      addBtn.onclick = async ()=>{
+        const equipId = safeTrim(db.session?.editChecklistEquipId || '');
+        const textLt = safeTrim(newLtEl?.value || '');
+        const textRu = safeTrim(newRuEl?.value || '');
+
+        if(!equipId){
+          if(msgEl) msgEl.textContent = 'Pirma pasirink techniką.';
+          return;
+        }
+
+        if(!textLt){
+          if(msgEl) msgEl.textContent = 'Įrašyk LT punktą.';
+          return;
+        }
+
+        const arr = collectChecklistFromInputs(equipId);
+        arr.push({
+          id: 'chkitem-' + rid(),
+          textLt,
+          textRu
+        });
+
+        const ok = await saveChecklist(equipId, arr);
+        if(ok){
+          if(newLtEl) newLtEl.value = '';
+          if(newRuEl) newRuEl.value = '';
+        }
+      };
+    }
+
+    document.querySelectorAll('[data-cl-up]').forEach(btn => {
       btn.onclick = async ()=>{
-        const equipId = db.session?.editChecklistEquipId;
+        const equipId = safeTrim(db.session?.editChecklistEquipId || '');
         if(!equipId) return;
 
-        const idx = Number(btn.getAttribute('data-check-up'));
-        const arr = ensureChecklistArray(equipId).slice();
+        const idx = Number(btn.getAttribute('data-cl-up'));
+        const arr = collectChecklistFromInputs(equipId);
         if(idx <= 0) return;
 
         [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
@@ -2672,13 +2379,13 @@ function bindAdminEquip(){
       };
     });
 
-    document.querySelectorAll('[data-check-down]').forEach(btn => {
+    document.querySelectorAll('[data-cl-down]').forEach(btn => {
       btn.onclick = async ()=>{
-        const equipId = db.session?.editChecklistEquipId;
+        const equipId = safeTrim(db.session?.editChecklistEquipId || '');
         if(!equipId) return;
 
-        const idx = Number(btn.getAttribute('data-check-down'));
-        const arr = ensureChecklistArray(equipId).slice();
+        const idx = Number(btn.getAttribute('data-cl-down'));
+        const arr = collectChecklistFromInputs(equipId);
         if(idx >= arr.length - 1) return;
 
         [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
@@ -2686,68 +2393,19 @@ function bindAdminEquip(){
       };
     });
 
-    document.querySelectorAll('[data-check-del]').forEach(btn => {
+    document.querySelectorAll('[data-cl-del]').forEach(btn => {
       btn.onclick = async ()=>{
-        const equipId = db.session?.editChecklistEquipId;
+        const equipId = safeTrim(db.session?.editChecklistEquipId || '');
         if(!equipId) return;
 
-        const idx = Number(btn.getAttribute('data-check-del'));
-        const arr = ensureChecklistArray(equipId).slice();
+        const idx = Number(btn.getAttribute('data-cl-del'));
+        const arr = collectChecklistFromInputs(equipId);
+        if(idx < 0 || idx >= arr.length) return;
+
         arr.splice(idx, 1);
         await saveChecklist(equipId, arr);
       };
     });
-
-    const clearChecklistEquipBtn = document.getElementById('clearChecklistEquip');
-    if(clearChecklistEquipBtn){
-      clearChecklistEquipBtn.onclick = ()=>{
-        db.session.editChecklistEquipId = null;
-        saveDB_local(db);
-        render();
-      };
-    }
-
-    const loadDefaultBtn = document.getElementById('loadChecklistDefault');
-    if(loadDefaultBtn){
-      loadDefaultBtn.onclick = async ()=>{
-        const equipId = db.session?.editChecklistEquipId;
-        if(!equipId){
-          if(checklistMsg) checklistMsg.textContent = 'Pirma pasirink techniką.';
-          return;
-        }
-
-        const arr = defaultChecklistTemplate().map(text => ({
-          id: 'chkitem-' + rid(),
-          text
-        }));
-
-        await saveChecklist(equipId, arr);
-      };
-    }
-
-    const addChecklistItemBtn = document.getElementById('addChecklistItem');
-    if(addChecklistItemBtn){
-      addChecklistItemBtn.onclick = async ()=>{
-        const equipId = db.session?.editChecklistEquipId;
-        const text = safeTrim(newItemEl?.value || '');
-
-        if(!equipId){
-          if(checklistMsg) checklistMsg.textContent = 'Pirma pasirink techniką.';
-          return;
-        }
-
-        if(!text){
-          if(checklistMsg) checklistMsg.textContent = 'Įrašyk punkto tekstą.';
-          return;
-        }
-
-        const arr = ensureChecklistArray(equipId).slice();
-        arr.push({ id: 'chkitem-' + rid(), text });
-
-        const ok = await saveChecklist(equipId, arr);
-        if(ok && newItemEl) newItemEl.value = '';
-      };
-    }
   }
 }
 

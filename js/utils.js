@@ -118,17 +118,17 @@ function labelEquip(eid){
 
 function defaultChecklistTemplate(){
   return [
-    'Variklio tepalas',
-    'Hidraulikos tepalas',
-    'Greičių dėžės tepalas',
-    'Aušinimo skystis',
-    'Langų apiplovimo skystis',
-    'Tepimo bakelio papildymas',
-    'Vizualinė apžiūra: mašinos',
-    'Vizualinė apžiūra: hidraulinių žarnų',
-    'Vizualinė apžiūra: ratų',
-    'Rankinis tepimo taškų pratepimas',
-    'Pridėti nuo savęs'
+    { textLt: 'Variklio tepalas', textRu: 'Моторное масло' },
+    { textLt: 'Hidraulikos tepalas', textRu: 'Гидравлическое масло' },
+    { textLt: 'Greičių dėžės tepalas', textRu: 'Масло коробки передач' },
+    { textLt: 'Aušinimo skystis', textRu: 'Охлаждающая жидкость' },
+    { textLt: 'Langų apiplovimo skystis', textRu: 'Жидкость омывателя стекла' },
+    { textLt: 'Tepimo bakelio papildymas', textRu: 'Пополнение бака смазки' },
+    { textLt: 'Vizualinė apžiūra: mašinos', textRu: 'Визуальный осмотр машины' },
+    { textLt: 'Vizualinė apžiūra: hidraulinių žarnų', textRu: 'Визуальный осмотр гидравлических шлангов' },
+    { textLt: 'Vizualinė apžiūra: ratų', textRu: 'Визуальный осмотр колёс' },
+    { textLt: 'Rankinis tepimo taškų pratepimas', textRu: 'Ручная смазка точек смазки' },
+    { textLt: 'Pridėti nuo savęs', textRu: 'Добавить от себя' }
   ];
 }
 
@@ -145,9 +145,9 @@ async function ensureDefaultChecklistForEquipment(equipId){
     ? Math.max(...existing.map(x => Number(x.sortOrder || 0))) + 1
     : 1;
 
-  for(const text of defaults){
+  for(const item of defaults){
     const alreadyExists = (db.equipmentChecklists[equipId] || []).some(x =>
-      safeTrim(x.text).toLowerCase() === safeTrim(text).toLowerCase()
+      safeTrim(x.textLt || x.text).toLowerCase() === safeTrim(item.textLt).toLowerCase()
     );
 
     if(alreadyExists) continue;
@@ -156,7 +156,9 @@ async function ensureDefaultChecklistForEquipment(equipId){
       .from('equipment_checklists')
       .insert([{
         equip_id: equipId,
-        item_text: text,
+        item_text_lt: item.textLt,
+        item_text_ru: item.textRu,
+        item_text: item.textLt,
         sort_order: nextSort,
         is_active: true
       }])
@@ -170,14 +172,15 @@ async function ensureDefaultChecklistForEquipment(equipId){
 
     db.equipmentChecklists[equipId].push({
       id: data.id,
-      text: data.item_text || '',
+      textLt: data.item_text_lt || '',
+      textRu: data.item_text_ru || '',
       sortOrder: data.sort_order || 0
     });
 
     nextSort++;
   }
 
-  db.equipmentChecklists[equipId] = (db.equipmentChecklists[equipId] || [])
+  db.equipmentChecklists[equipId] = db.equipmentChecklists[equipId]
     .slice()
     .sort((a,b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
 
@@ -735,4 +738,34 @@ async function loadDashboardWeather(){
     tempEl.textContent = '--°C';
     fcEl.innerHTML = `<div class="weather-error">Bandykite vėliau</div>`;
   }
+}
+async function migrateChecklistRuFromDefaults(){
+  const defaultMap = {};
+  defaultChecklistTemplate().forEach(item => {
+    defaultMap[safeTrim(item.textLt).toLowerCase()] = item.textRu || '';
+  });
+
+  const allEquipIds = Object.keys(db.equipmentChecklists || {});
+  for(const equipId of allEquipIds){
+    const current = (db.equipmentChecklists[equipId] || []).map((item, idx) => {
+      const textLt = safeTrim(item.textLt || item.text || '');
+      const textRu = safeTrim(item.textRu || '');
+
+      return {
+        id: item.id || ('chkitem-' + rid()),
+        textLt,
+        textRu: textRu || defaultMap[textLt.toLowerCase()] || '',
+        sortOrder: idx + 1
+      };
+    });
+
+    const ok = await replaceEquipmentChecklistInSupabase(equipId, current);
+    if(ok){
+      db.equipmentChecklists[equipId] = current;
+    }
+  }
+
+  saveDB_local(db);
+  render();
+  alert('Checklist RU migracija baigta.');
 }

@@ -343,7 +343,7 @@ th, td{padding:10px; border-bottom:1px solid var(--border); text-align:left; ver
 }
 
 .taskCard.danger{
-  background:#d68f8f;
+  background:#d7a5a5;
   border-color:#d6e724;
 }
 
@@ -539,7 +539,7 @@ th, td{padding:10px; border-bottom:1px solid var(--border); text-align:left; ver
 }
 
 .mech-badge.open{
-  color:#a54e31;
+  color:#985c48;
   border-color:#fed7aa;
   background:#fff7ed;
 }
@@ -740,30 +740,27 @@ textarea.mWaitComment::placeholder {
   margin-top: 10px;
 }
 
-.weather-forecast-item {
-  background: rgba(255,255,255,0.55);
-  border: 1px solid #dbe2ea;
-  border-radius: 10px;
-  padding: 6px 8px;
-  text-align: center;
+.weather-forecast-item{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px;
+  background:#fff;
 }
 
-.weather-forecast-time {
-  font-size: 11px;
-  color: #64748b;
-  margin-bottom: 4px;
+.weather-forecast-time{
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
 }
 
-.weather-forecast-temp {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
+.weather-forecast-temp{
+  font-weight:700;
+  margin-bottom:4px;
 }
 
-.weather-forecast-wind {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 2px;
+.weather-forecast-wind{
+  font-size:12px;
+  color:var(--muted);
 }
 
 .weather-loading,

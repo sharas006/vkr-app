@@ -46,11 +46,12 @@ async function loadEquipmentChecklistsFromSupabase(){
   const grouped = {};
   (data || []).forEach(r => {
     if(!grouped[r.equip_id]) grouped[r.equip_id] = [];
-    grouped[r.equip_id].push({
-      id: r.id,
-      text: r.item_text || '',
-      sortOrder: r.sort_order || 0
-    });
+grouped[r.equip_id].push({
+  id: r.id,
+  textLt: r.item_text_lt || r.item_text || '',
+  textRu: r.item_text_ru || '',
+  sortOrder: r.sort_order || 0
+});
   });
 
   return grouped;
@@ -67,16 +68,16 @@ async function replaceEquipmentChecklistInSupabase(equipId, items){
     return false;
   }
 
-  if(!items.length){
-    return true;
-  }
+  if(!items.length) return true;
 
-  const payload = items.map((item, idx) => ({
-    equip_id: equipId,
-    item_text: item.text,
-    sort_order: idx + 1,
-    is_active: true
-  }));
+const payload = items.map((item, idx) => ({
+  equip_id: equipId,
+  item_text_lt: item.textLt || '',
+  item_text_ru: item.textRu || '',
+  item_text: item.textLt || item.textRu || '',
+  sort_order: idx + 1,
+  is_active: true
+}));
 
   const { error: insertError } = await sb
     .from('equipment_checklists')
@@ -955,6 +956,8 @@ async function loadDailyChecksFromSupabase(){
     userId: x.user_id,
     userName: x.user_name || '',
     date: x.date || '',
+    shiftKey: x.shift_key || '',
+    shiftName: x.shift_name || '',
     doneAt: x.done_at || null
   }));
 }
@@ -965,6 +968,8 @@ async function saveDailyCheckInSupabase(item){
     user_id: item.userId,
     user_name: item.userName || '',
     date: item.date || '',
+    shift_key: item.shiftKey || '',
+    shift_name: item.shiftName || '',
     done_at: item.doneAt || null
   };
 
@@ -972,7 +977,7 @@ async function saveDailyCheckInSupabase(item){
     .from('daily_checks')
     .select('id')
     .eq('equip_id', item.equipId)
-    .eq('date', item.date)
+    .eq('shift_key', item.shiftKey)
     .maybeSingle();
 
   if(existingError){
@@ -999,6 +1004,8 @@ async function saveDailyCheckInSupabase(item){
       userId: data.user_id,
       userName: data.user_name || '',
       date: data.date || '',
+      shiftKey: data.shift_key || '',
+      shiftName: data.shift_name || '',
       doneAt: data.done_at || null
     };
   }
@@ -1020,6 +1027,8 @@ async function saveDailyCheckInSupabase(item){
     userId: data.user_id,
     userName: data.user_name || '',
     date: data.date || '',
+    shiftKey: data.shift_key || '',
+    shiftName: data.shift_name || '',
     doneAt: data.done_at || null
   };
 }
