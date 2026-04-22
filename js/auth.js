@@ -29,8 +29,8 @@ async function reloadCoreData(){
   const dailyChecksFromCloud = await loadDailyChecksFromSupabase();
   if(Array.isArray(dailyChecksFromCloud) && dailyChecksFromCloud.length) db.dailyChecks = dailyChecksFromCloud;
 
-  const devicesFromCloud = await loadDevicesFromSupabase();
-  if(Array.isArray(devicesFromCloud) && devicesFromCloud.length) db.devices = devicesFromCloud;
+const devicesFromCloud = await loadDevicesFromSupabase();
+if(Array.isArray(devicesFromCloud)) db.devices = devicesFromCloud;
 
   const checklistsFromCloud = await loadEquipmentChecklistsFromSupabase();
   if(checklistsFromCloud && Object.keys(checklistsFromCloud).length) db.equipmentChecklists = checklistsFromCloud;
@@ -86,16 +86,26 @@ async function restoreSessionFromAuth(){
     db.users.push(normalizedUser);
   }
 
-  if(normalizedUser.role === 'operator'){
-    await upsertCurrentDevice(normalizedUser);
+if(normalizedUser.role === 'operator'){
+  const upsertedDevice = await upsertCurrentDevice(normalizedUser);
 
-    const currentDevice = await getCurrentDeviceRecord();
-    db.session.deviceEquipId = currentDevice?.equip_id || null;
-    db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
-  } else {
-    db.session.deviceEquipId = null;
-    db.session.deviceId = null;
+  if(upsertedDevice){
+    if(!db.devices) db.devices = [];
+    const idx = db.devices.findIndex(x => x.device_id === upsertedDevice.device_id);
+    if(idx >= 0){
+      db.devices[idx] = upsertedDevice;
+    } else {
+      db.devices.unshift(upsertedDevice);
+    }
   }
+
+  const currentDevice = upsertedDevice || await getCurrentDeviceRecord();
+  db.session.deviceEquipId = currentDevice?.equip_id || null;
+  db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+} else {
+  db.session.deviceEquipId = null;
+  db.session.deviceId = null;
+}
 }
 
 async function doLogin(username, password){

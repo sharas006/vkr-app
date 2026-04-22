@@ -35,8 +35,8 @@ async function boot(){
   const dailyChecksFromCloud = await loadDailyChecksFromSupabase();
   if(Array.isArray(dailyChecksFromCloud) && dailyChecksFromCloud.length) db.dailyChecks = dailyChecksFromCloud;
 
-  const devicesFromCloud = await loadDevicesFromSupabase();
-  if(Array.isArray(devicesFromCloud) && devicesFromCloud.length) db.devices = devicesFromCloud;
+const devicesFromCloud = await loadDevicesFromSupabase();
+if(Array.isArray(devicesFromCloud)) db.devices = devicesFromCloud;
 
   const checklistsFromCloud = await loadEquipmentChecklistsFromSupabase();
   if(checklistsFromCloud && Object.keys(checklistsFromCloud).length) db.equipmentChecklists = checklistsFromCloud;

@@ -1553,6 +1553,13 @@ function bindAdminDevices(){
   const nmEl = document.getElementById('dDeviceName');
   const eqEl = document.getElementById('dEquipId');
   const msg = document.getElementById('dMsg');
+  const refreshBtn = document.getElementById('devicesRefresh');
+if(refreshBtn){
+  refreshBtn.onclick = async ()=>{
+    await reloadCoreData();
+    render();
+  };
+}
 
   function scrollToTopCard(){
     const el = document.getElementById('devicesTopCard');
