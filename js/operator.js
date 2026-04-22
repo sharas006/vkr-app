@@ -46,6 +46,90 @@ function getCurrentShiftInfo(now = new Date()){
   const d = new Date(now);
   const hour = d.getHours();
 
+  // 07:00 - 18:59
+  if(hour >= 7 && hour < 19){
+    const shiftDate = formatShiftDate(d);
+    return {
+      shiftDate,
+      shiftKey: `${shiftDate}_DAY`,
+      shiftName: 'DAY'
+    };
+  }
+
+  // 19:00 - 23:59 = tos pačios dienos NIGHT
+  // 00:00 - 06:59 = ankstesnės dienos NIGHT
+  const anchor = new Date(d);
+  if(hour < 7){
+    anchor.setDate(anchor.getDate() - 1);
+  }
+
+  const shiftDate = formatShiftDate(anchor);
+  return {
+    shiftDate,
+    shiftKey: `${shiftDate}_NIGHT`,
+    shiftName: 'NIGHT'
+  };
+}
+
+function dailyChecksForEquip(eid){
+  return (db.dailyChecks || [])
+    .map(normalizeDailyCheck)
+    .filter(Boolean)
+    .filter(x => String(x.equipId) === String(eid));
+}
+
+function hasCurrentShiftCheck(eid){
+  const shift = getCurrentShiftInfo();
+  return dailyChecksForEquip(eid).some(x => x.shiftKey === shift.shiftKey);
+}
+
+function getLatestDailyCheck(eid){
+  return dailyChecksForEquip(eid)
+    .sort((a, b) => (a.doneAt || a.date || '') < (b.doneAt || b.date || '') ? 1 : -1)[0] || null;
+}
+
+function operatorNotesForEquip(eid){
+  return (db.notes || [])
+    .map(normalizeNote)
+    .filter(Boolean)
+    .filter(n => String(n.equipId) === String(eid))
+    .sort((a, b) => {
+      const ad = a.createdAt || a.date || '';
+      const bd = b.createdAt || b.date || '';
+      return ad < bd ? 1 : -1;
+    });
+}
+
+function getChecklistForEquip(eid){
+  const items = db.equipmentChecklists?.[eid] || [];
+  if(items.length){
+    return items.map((x, idx) => ({
+      id: x.id || `chk_${eid}_${idx}`,
+      textLt: x.textLt || x.text || '',
+      textRu: x.textRu || '',
+      sortOrder: x.sortOrder || (idx + 1)
+    }));
+  }
+
+  return defaultChecklistTemplate().map((x, idx) => ({
+    id: `default_${eid}_${idx}`,
+    textLt: x.textLt || '',
+    textRu: x.textRu || '',
+    sortOrder: idx + 1
+  }));
+}
+
+function formatShiftDate(dateObj){
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getCurrentShiftInfo(now = new Date()){
+  const d = new Date(now);
+  const hour = d.getHours();
+
   // 07:00 - 18:59 = dieninė
   if(hour >= 7 && hour < 19){
     const shiftDate = formatShiftDate(d);
@@ -255,16 +339,11 @@ function renderOperatorView(user){
       </div>
     `;
 
-    return renderShell(
-      `${user.display || user.username} • operator`,
-      body
-    );
+    return renderShell(`${user.display || user.username} • operator`, body);
   }
 
   const shiftInfo = getCurrentShiftInfo();
   const shiftChecked = hasCurrentShiftCheck(eid);
-
-  // jei pamainos patikra neatlikta – visada verčiam į check
   const view = (!shiftChecked && rawView !== 'check') ? 'check' : rawView;
   const latestCheck = getLatestDailyCheck(eid);
 
@@ -409,10 +488,7 @@ function renderOperatorView(user){
     `;
   }
 
-  return renderShell(
-    `${user.display || user.username} • operator`,
-    body
-  );
+  return renderShell(`${user.display || user.username} • operator`, body);
 }
 
 function bindOperatorView(user){
@@ -430,11 +506,9 @@ function bindOperatorView(user){
   const eid = db.session.deviceEquipId || user.equipId || null;
   if(!eid) return;
 
-  const shiftInfo = getCurrentShiftInfo();
   const shiftChecked = hasCurrentShiftCheck(eid);
   let view = db.session.opView || 'home';
 
-  // jei patikra neatlikta – verčiam į check ir neleidžiam niekur kitur
   if(!shiftChecked && view !== 'check'){
     db.session.opView = 'check';
     saveDB_local(db);
@@ -460,7 +534,6 @@ function bindOperatorView(user){
       };
     }
 
-    // kol nepadaryta patikra – neleidžiam niekur kitur
     if(opQuickNote){
       opQuickNote.onclick = ()=>{
         if(!hasCurrentShiftCheck(eid)){
@@ -579,7 +652,6 @@ function bindOperatorView(user){
     const backBtn = document.getElementById('opBack1');
     if(backBtn){
       backBtn.onclick = ()=>{
-        // jei patikra neatlikta – grįžti neleisti, paliekam check lange
         if(!hasCurrentShiftCheck(eid)){
           return;
         }
@@ -772,12 +844,7 @@ function bindOperatorView(user){
           db.notes.unshift(savedNote);
 
           if(file){
-            const savedFile = await uploadTaskFileToSupabase(
-              file,
-              { noteId: savedNote.id },
-              user
-            );
-
+            const savedFile = await uploadTaskFileToSupabase(file, { noteId: savedNote.id }, user);
             if(savedFile){
               if(!db.taskFiles) db.taskFiles = [];
               db.taskFiles.unshift(savedFile);
