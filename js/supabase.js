@@ -1111,41 +1111,16 @@ async function upsertCurrentDevice(user){
     last_user_name: user?.display || user?.username || ''
   };
 
-  const existing = await sb
-    .from('devices')
-    .select('id, device_id, equip_id')
-    .eq('device_id', deviceId)
-    .maybeSingle();
-
-  if(existing.error){
-    console.error('Device lookup klaida:', existing.error);
-    return null;
-  }
-
-  if(existing.data){
-    const { data, error } = await sb
-      .from('devices')
-      .update(payload)
-      .eq('device_id', deviceId)
-      .select()
-      .single();
-
-    if(error){
-      console.error('Device update klaida:', error);
-      return null;
-    }
-
-    return data;
-  }
-
   const { data, error } = await sb
     .from('devices')
-    .insert([payload])
+    .upsert([payload], {
+      onConflict: 'device_id'
+    })
     .select()
     .single();
 
   if(error){
-    console.error('Device insert klaida:', error);
+    console.error('Device upsert klaida:', error);
     return null;
   }
 
