@@ -133,7 +133,13 @@ function bindAdminView(user){
   if(view === 'approvals') bindAdminApprovals();
   if(view === 'notes') bindAdminNotes(user);
   if(view === 'checks') bindAdminChecksRegistry();
-  if(view === 'devices') bindAdminDevices();
+  if(view === 'devices'){
+  (async ()=>{
+    await reloadCoreData();
+    render();
+  })();
+  bindAdminDevices();
+}
   if(view === 'password') bindChangePassword(user);
   if(view === 'lube') bindAdminLube();
   if(view === 'grabs') bindAdminGrabs();
@@ -1563,6 +1569,15 @@ if(refreshBtn){
     render();
   };
 }
+if(window.__devicesAutoRefresh){
+  clearInterval(window.__devicesAutoRefresh);
+}
+
+window.__devicesAutoRefresh = setInterval(async () => {
+  if((db.session?.adminView || '') !== 'devices') return;
+  await reloadCoreData();
+  render();
+}, 5000);
 
   function scrollToTopCard(){
     const el = document.getElementById('devicesTopCard');
