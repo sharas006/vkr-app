@@ -11,6 +11,7 @@ function render(){
 
 if(!user){
   if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
+  if(typeof stopDeviceHeartbeat === 'function') stopDeviceHeartbeat();
   root.innerHTML = renderLogin();
   bindLogin();
   return;
@@ -18,6 +19,7 @@ if(!user){
 
 if(user.role === 'admin'){
   if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
+  if(typeof stopDeviceHeartbeat === 'function') stopDeviceHeartbeat();
   root.innerHTML = renderAdminView(user);
   bindAdminView(user);
   return;
@@ -28,11 +30,13 @@ if(user.role === 'operator'){
   bindShell();
   bindOperatorView(user);
   if(typeof syncOperatorIdleLogout === 'function') syncOperatorIdleLogout();
+  if(typeof startDeviceHeartbeat === 'function') startDeviceHeartbeat();
   return;
 }
 
 if(user.role === 'mechanic'){
   if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
+  if(typeof stopDeviceHeartbeat === 'function') stopDeviceHeartbeat();
   root.innerHTML = renderMechanicView(user);
   bindShell();
   bindMechanicView(user);

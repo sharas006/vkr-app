@@ -1,5 +1,55 @@
 let operatorIdleTimer = null;
 let operatorIdleTrackingBound = false;
+let deviceHeartbeatTimer = null;
+
+function stopDeviceHeartbeat(){
+  if(deviceHeartbeatTimer){
+    clearInterval(deviceHeartbeatTimer);
+    deviceHeartbeatTimer = null;
+  }
+}
+
+function startDeviceHeartbeat(){
+  stopDeviceHeartbeat();
+
+  const user = currentUser();
+  if(!user || user.role !== 'operator') return;
+
+  const runHeartbeat = async () => {
+    try {
+      const updated = await heartbeatCurrentDevice(user);
+      if(updated){
+        if(!db.devices) db.devices = [];
+
+        const idx = db.devices.findIndex(x => String(x.device_id) === String(updated.device_id));
+        if(idx >= 0) db.devices[idx] = updated;
+        else db.devices.unshift(updated);
+
+        db.session.deviceEquipId = updated.equip_id || null;
+        db.session.deviceId = updated.device_id || getOrCreateDeviceId();
+        saveDB_local(db);
+      }
+    } catch(err){
+      console.error('Device heartbeat klaida:', err);
+    }
+  };
+
+  runHeartbeat();
+  deviceHeartbeatTimer = setInterval(runHeartbeat, 30000);
+}
+
+document.addEventListener('visibilitychange', () => {
+  const user = currentUser();
+  if(!user || user.role !== 'operator') return;
+
+  if(document.visibilityState === 'visible'){
+    startDeviceHeartbeat();
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  stopDeviceHeartbeat();
+});
 window.addEventListener('unhandledrejection', e => {
   console.warn('Unhandled promise:', e.reason);
 });

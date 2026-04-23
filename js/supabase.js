@@ -1127,6 +1127,10 @@ async function upsertCurrentDevice(user){
   return data;
 }
 
+async function heartbeatCurrentDevice(user){
+  return await upsertCurrentDevice(user);
+}
+
 async function updateTaskInSupabase(taskId, updates){
   const payload = {};
 

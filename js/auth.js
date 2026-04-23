@@ -37,14 +37,6 @@ if(Array.isArray(devicesFromCloud)) db.devices = devicesFromCloud;
 }
 
 async function logout(){
-  await sb.auth.signOut();
-  db.session.userId = null;
-  db.session.currentUser = null;
-  saveDB_local(db);
-  render();
-}
-
-async function logout(){
   if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
 
   await sb.auth.signOut();

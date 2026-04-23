@@ -1460,6 +1460,32 @@ function adminDevices(){
   const eqOpts = (db.equipment || [])
     .map(e => `<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
     .join('');
+      function deviceIsLive(device){
+    if(!device?.last_seen_at) return false;
+    const diff = Date.now() - new Date(device.last_seen_at).getTime();
+    return diff <= 90 * 1000;
+  }
+    function deviceIsLive(device){
+    if(!device?.last_seen_at) return false;
+    const diff = Date.now() - new Date(device.last_seen_at).getTime();
+    return diff <= 90 * 1000;
+  }
+
+  function deviceStatusHtml(device){
+    const live = deviceIsLive(device);
+
+    return live
+      ? `<span class="pill" style="background:#dcfce7;color:#166534;border:1px solid #86efac;">ONLINE</span>`
+      : `<span class="pill" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;">OFFLINE</span>`;
+  }
+
+  function deviceStatusHtml(device){
+    const live = deviceIsLive(device);
+
+    return live
+      ? `<span class="pill" style="background:#dcfce7;color:#166534;border:1px solid #86efac;">ONLINE</span>`
+      : `<span class="pill" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;">OFFLINE</span>`;
+  }
 
 const rows = ((db.devices || []).slice().sort((a,b)=>{
   const ad = a.last_seen_at || '';
@@ -1468,6 +1494,7 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
 })).map(d => {
   const shortId = String(d.device_id || '');
   const shortSeen = String(fmt(d.last_seen_at) || '—').slice(0, 16);
+  const statusHtml = deviceStatusHtml(d);
 
   return `
     <tr class="compact-row">
@@ -1488,7 +1515,8 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
       </td>
 
       <td class="compact-date">
-        ${escapeHtml(shortSeen)}
+        <div>${statusHtml}</div>
+        <div class="muted small" style="margin-top:4px">${escapeHtml(shortSeen)}</div>
       </td>
 
       <td class="compact-actions">
@@ -1555,6 +1583,15 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
 }
 
 function bindAdminDevices(){
+if(window.__devicesAutoRefresh){
+  clearInterval(window.__devicesAutoRefresh);
+}
+
+window.__devicesAutoRefresh = setInterval(async () => {
+  await reloadCoreData();
+  render();
+}, 10000); // kas 10 sek
+
   const idEl = document.getElementById('dDeviceId');
   const nmEl = document.getElementById('dDeviceName');
   const eqEl = document.getElementById('dEquipId');
