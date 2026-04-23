@@ -220,7 +220,7 @@ function renderOpLangSwitcher(){
 function renderOperatorView(user){
   ensureOperatorData();
 
-  const eid = db.session.deviceEquipId || user.equipId || null;
+  const eid = db.session.deviceEquipId || null;
   const rawView = db.session.opView || 'home';
 
   let body = '';
