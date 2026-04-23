@@ -1,3 +1,72 @@
+let operatorIdleTimer = null;
+let operatorIdleTrackingBound = false;
+
+function clearOperatorIdleTimer(){
+  if(operatorIdleTimer){
+    clearTimeout(operatorIdleTimer);
+    operatorIdleTimer = null;
+  }
+}
+
+function shouldUseOperatorIdleLogout(){
+  return !!db?.session?.currentUser && db.session.currentUser.role === 'operator';
+}
+
+async function handleOperatorIdleLogout(){
+  clearOperatorIdleTimer();
+
+  if(!shouldUseOperatorIdleLogout()) return;
+
+  alert('Dėl 30 min. neaktyvumo planšetė buvo atjungta.');
+  await logout();
+}
+
+function resetOperatorIdleTimer(){
+  clearOperatorIdleTimer();
+
+  if(!shouldUseOperatorIdleLogout()) return;
+
+  operatorIdleTimer = setTimeout(() => {
+    handleOperatorIdleLogout();
+  }, APP_CONFIG.INACTIVITY_LOGOUT_MS || (30 * 60 * 1000));
+}
+
+function bindOperatorIdleTracking(){
+  if(operatorIdleTrackingBound) return;
+  operatorIdleTrackingBound = true;
+
+  const events = [
+    'pointerdown',
+    'pointermove',
+    'keydown',
+    'touchstart',
+    'click',
+    'scroll'
+  ];
+
+  events.forEach(evt => {
+    window.addEventListener(evt, () => {
+      resetOperatorIdleTimer();
+    }, { passive: true });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible'){
+      resetOperatorIdleTimer();
+    }
+  });
+}
+
+function syncOperatorIdleLogout(){
+  bindOperatorIdleTracking();
+
+  if(shouldUseOperatorIdleLogout()){
+    resetOperatorIdleTimer();
+  } else {
+    clearOperatorIdleTimer();
+  }
+}
+
 async function boot(){
   const local = loadDB_local();
   db = local || seedDB();

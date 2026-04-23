@@ -9,25 +9,30 @@ function render(){
 
   const user = currentUser();
 
-  if(!user){
-    root.innerHTML = renderLogin();
-    bindLogin();
-    return;
-  }
+if(!user){
+  if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
+  root.innerHTML = renderLogin();
+  bindLogin();
+  return;
+}
 
-  if(user.role === 'admin'){
-    root.innerHTML = renderAdminView(user);
-    bindAdminView(user);
-    return;
-  }
+if(user.role === 'admin'){
+  if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
+  root.innerHTML = renderAdminView(user);
+  bindAdminView(user);
+  return;
+}
 
-  if(user.role === 'operator'){
-    root.innerHTML = renderOperatorView(user);
-    bindShell();
-    bindOperatorView(user);
-    return;
-  }
-  if(user.role === 'mechanic'){
+if(user.role === 'operator'){
+  root.innerHTML = renderOperatorView(user);
+  bindShell();
+  bindOperatorView(user);
+  if(typeof syncOperatorIdleLogout === 'function') syncOperatorIdleLogout();
+  return;
+}
+
+if(user.role === 'mechanic'){
+  if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
   root.innerHTML = renderMechanicView(user);
   bindShell();
   bindMechanicView(user);

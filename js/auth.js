@@ -44,6 +44,16 @@ async function logout(){
   render();
 }
 
+async function logout(){
+  if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
+
+  await sb.auth.signOut();
+  db.session.userId = null;
+  db.session.currentUser = null;
+  saveDB_local(db);
+  render();
+}
+
 async function restoreSessionFromAuth(){
   const { data, error } = await sb.auth.getUser();
   if(error || !data?.user) return;
@@ -116,10 +126,14 @@ async function doLogin(username, password){
       .eq('username', username)
       .maybeSingle();
 
-    if(loginLookupError){
-      console.error('Login lookup klaida:', loginLookupError);
-      return { ok:false, msg:'Nepavyko rasti vartotojo.' };
-    }
+if(loginLookupError){
+  console.error('Login lookup klaida:', loginLookupError);
+  return {
+    ok:false,
+    msg:'Nepavyko rasti vartotojo.',
+    debug: loginLookupError.message || JSON.stringify(loginLookupError)
+  };
+}
 
     if(!loginRow || !loginRow.email_login){
       return { ok:false, msg:'Nerastas vartotojas arba nepriskirtas el. paštas.' };
@@ -188,8 +202,12 @@ async function doLogin(username, password){
     saveDB_local(db);
     return { ok:true, user: normalizedUser };
 
-  }catch(err){
-    console.error(err);
-    return { ok:false, msg:'Nepavyko prisijungti.' };
-  }
+}catch(err){
+  console.error(err);
+  return {
+    ok:false,
+    msg:'Nepavyko prisijungti.',
+    debug: err?.message || String(err)
+  };
+}
 }

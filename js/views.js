@@ -43,11 +43,11 @@ function bindLogin(){
       safeTrim(p.value)
     );
 
-    if(!res.ok){
-      console.error('LOGIN FAILED:', res);
-      msg.textContent = res.msg || 'Klaida.';
-      return;
-    }
+if(!res.ok){
+  console.error('LOGIN FAILED:', res);
+  msg.textContent = (res.msg || 'Klaida.') + (res.debug ? ' | ' + res.debug : '');
+  return;
+}
 
     msg.textContent = '';
     render();

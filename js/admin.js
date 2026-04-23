@@ -1530,7 +1530,10 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
     </div>
 
     <div class="card">
-      <h3 style="margin-top:0">Planšečių registras</h3>
+      <div class="headerline" style="margin-bottom:10px">
+        <h3 style="margin:0">Planšečių registras</h3>
+        <button class="btn" id="devicesRefresh">Atnaujinti</button>
+      </div>
 <table class="compact-table">
   <thead>
     <tr>
