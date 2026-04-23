@@ -1,6 +1,12 @@
 let operatorIdleTimer = null;
 let operatorIdleTrackingBound = false;
+window.addEventListener('unhandledrejection', e => {
+  console.warn('Unhandled promise:', e.reason);
+});
 
+window.addEventListener('error', e => {
+  console.warn('Global error:', e.message);
+});
 function clearOperatorIdleTimer(){
   if(operatorIdleTimer){
     clearTimeout(operatorIdleTimer);
