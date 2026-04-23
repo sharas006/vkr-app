@@ -121,7 +121,10 @@ function bindAdminView(user){
       render();
     };
   });
-
+if(window.__devicesAutoRefresh && (db.session?.adminView || '') !== 'devices'){
+  clearInterval(window.__devicesAutoRefresh);
+  window.__devicesAutoRefresh = null;
+}
   const view = db.session.adminView || 'tasks';
 
   if(view === 'users') bindAdminUsers();
