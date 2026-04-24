@@ -1493,6 +1493,7 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
   return ad < bd ? 1 : -1;
 })).map(d => {
   const shortId = String(d.device_id || '');
+  const shortCode = String(d.device_code || '—');
   const shortSeen = String(fmt(d.last_seen_at) || '—').slice(0, 16);
   const statusHtml = deviceStatusHtml(d);
 
@@ -1527,7 +1528,7 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
       </td>
     </tr>
   `;
-}).join('') || `<tr><td colspan="6" class="muted">Planšečių dar nėra</td></tr>`;
+}).join('') || `<tr><td colspan="7" class="muted">Planšečių dar nėra</td></tr>`;
 
   return `
     <div class="card" id="devicesTopCard">
@@ -1537,6 +1538,10 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
           <div class="muted">Device ID</div>
           <input id="dDeviceId" readonly>
         </div>
+        <div>
+  <div class="muted">Stabilus kodas</div>
+  <input id="dDeviceCode" placeholder="pvz. TAB-LHM400-01">
+</div>
 
         <div>
           <div class="muted">Planšetės pavadinimas</div>
@@ -1569,6 +1574,7 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
   <thead>
     <tr>
       <th>Device ID</th>
+      <th>Kodas</th>
       <th>Pavad.</th>
       <th>Technika</th>
       <th>Vartotojas</th>
@@ -1583,16 +1589,10 @@ const rows = ((db.devices || []).slice().sort((a,b)=>{
 }
 
 function bindAdminDevices(){
-if(window.__devicesAutoRefresh){
-  clearInterval(window.__devicesAutoRefresh);
-}
 
-window.__devicesAutoRefresh = setInterval(async () => {
-  await reloadCoreData();
-  render();
-}, 10000); // kas 10 sek
 
   const idEl = document.getElementById('dDeviceId');
+  const codeEl = document.getElementById('dDeviceCode');
   const nmEl = document.getElementById('dDeviceName');
   const eqEl = document.getElementById('dEquipId');
   const msg = document.getElementById('dMsg');
@@ -1613,6 +1613,7 @@ if(refreshBtn){
 
   function clear(){
     if(idEl) idEl.value = '';
+    if(codeEl) codeEl.value = '';
     if(nmEl) nmEl.value = '';
     if(eqEl) eqEl.value = '';
     if(msg) msg.textContent = '';
@@ -1628,6 +1629,7 @@ if(refreshBtn){
       if(!d) return;
 
       if(idEl) idEl.value = d.device_id || '';
+      if(codeEl) codeEl.value = d.device_code || '';
       if(nmEl) nmEl.value = d.device_name || '';
       if(eqEl) eqEl.value = d.equip_id || '';
       if(msg) msg.textContent = 'Redaguoji planšetę: ' + (d.device_name || d.device_id);
@@ -1659,6 +1661,7 @@ if(refreshBtn){
   if(saveBtn){
     saveBtn.onclick = async ()=>{
       const deviceId = safeTrim(idEl?.value || '');
+      const deviceCode = safeTrim(codeEl?.value || '').toUpperCase();
       const deviceName = safeTrim(nmEl?.value || '');
       const equipId = safeTrim(eqEl?.value || '');
 
@@ -1667,10 +1670,11 @@ if(refreshBtn){
         return;
       }
 
-      const updated = await updateDeviceInSupabase(deviceId, {
-        deviceName,
-        equipId
-      });
+const updated = await updateDeviceInSupabase(deviceId, {
+  deviceCode,
+  deviceName,
+  equipId
+});
 
       if(!updated){
         if(msg) msg.textContent = 'Nepavyko išsaugoti.';

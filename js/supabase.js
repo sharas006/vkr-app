@@ -1050,8 +1050,9 @@ async function loadDevicesFromSupabase(){
 async function updateDeviceInSupabase(deviceId, updates){
   const payload = {};
 
-  if(updates.deviceName !== undefined) payload.device_name = updates.deviceName || null;
-  if(updates.equipId !== undefined) payload.equip_id = updates.equipId || null;
+if(updates.deviceName !== undefined) payload.device_name = updates.deviceName || null;
+if(updates.deviceCode !== undefined) payload.device_code = updates.deviceCode || null;
+if(updates.equipId !== undefined) payload.equip_id = updates.equipId || null;
 
   const { data, error } = await sb
     .from('devices')
@@ -1105,6 +1106,7 @@ async function upsertCurrentDevice(user){
 
   const payload = {
     device_id: deviceId,
+    device_code: getDeviceCode() || null,
     device_name: deviceName || null,
     last_seen_at: new Date().toISOString(),
     last_user_id: user?.id || null,
@@ -1125,6 +1127,10 @@ async function upsertCurrentDevice(user){
   }
 
   return data;
+}
+
+async function heartbeatCurrentDevice(user){
+  return await upsertCurrentDevice(user);
 }
 
 async function heartbeatCurrentDevice(user){

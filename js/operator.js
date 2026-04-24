@@ -219,6 +219,27 @@ function renderOpLangSwitcher(){
 
 function renderOperatorView(user){
   ensureOperatorData();
+  const deviceCode = getDeviceCode();
+
+if(!deviceCode){
+  const body = `
+    ${renderOpLangSwitcher()}
+    <div class="card">
+      <h3 style="margin-top:0">Planšetės nustatymas</h3>
+      <div class="muted">Įveskite stabilų planšetės kodą, pvz. TAB-LHM400-01</div>
+
+      <div style="margin-top:12px">
+        <input id="deviceCodeInput" placeholder="TAB-LHM400-01">
+      </div>
+
+      <div style="margin-top:12px">
+        <button class="btn primary" id="saveDeviceCode">Išsaugoti kodą</button>
+      </div>
+    </div>
+  `;
+
+  return renderShell(`${user.display || user.username} • operator`, body);
+}
 
   const eid = db.session.deviceEquipId || null;
   const rawView = db.session.opView || 'home';
@@ -398,6 +419,29 @@ function renderOperatorView(user){
 function bindOperatorView(user){
   bindShell();
   bindTaskFileUploads(user);
+  const saveDeviceCodeBtn = document.getElementById('saveDeviceCode');
+if(saveDeviceCodeBtn){
+  saveDeviceCodeBtn.onclick = async ()=>{
+    const val = safeTrim(document.getElementById('deviceCodeInput')?.value || '');
+
+    if(!val){
+      alert('Įveskite planšetės kodą.');
+      return;
+    }
+
+    setDeviceCode(val);
+    await upsertCurrentDevice(user);
+    const currentDevice = await getCurrentDeviceRecord();
+
+    db.session.deviceEquipId = currentDevice?.equip_id || null;
+    db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+
+    saveDB_local(db);
+    render();
+  };
+
+  return;
+}
 
   document.querySelectorAll('[data-op-lang]').forEach(btn => {
     btn.onclick = ()=>{
@@ -407,7 +451,7 @@ function bindOperatorView(user){
     };
   });
 
-  const eid = db.session.deviceEquipId || user.equipId || null;
+  const eid = db.session.deviceEquipId || null;
   if(!eid) return;
 
   const shiftChecked = hasCurrentShiftCheck(eid);

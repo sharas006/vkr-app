@@ -97,6 +97,14 @@ function setDeviceName(name){
   localStorage.setItem('vkr_device_name', safeTrim(name || ''));
 }
 
+function getDeviceCode(){
+  return localStorage.getItem('vkr_device_code') || '';
+}
+
+function setDeviceCode(code){
+  localStorage.setItem('vkr_device_code', safeTrim(code || '').toUpperCase());
+}
+
 function userDisplay(uid){
   const u = (db.users || []).find(x => x.id === uid);
   return u ? (u.display || u.username) : '(nenurodyta)';
