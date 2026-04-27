@@ -1,3 +1,13 @@
+function companyIdOrFail(){
+  const companyId = getCompanyId();
+  if(!companyId){
+    console.error('Nėra company_id. Reikia atsijungti/prisijungti iš naujo.');
+    alert('Nerastas įmonės ID. Atsijunkite ir prisijunkite iš naujo.');
+    throw new Error('Missing company_id');
+  }
+  return companyId;
+}
+
 async function loadTasksFromSupabase(){
   const companyId = getCompanyId();
 
@@ -125,7 +135,10 @@ async function loadTaskFilesFromSupabase(){
 }
 
 async function createTaskFileInSupabase(item){
+  const companyId = companyIdOrFail();
+
   const payload = {
+    company_id: item.companyId || companyId,
     task_id: item.taskId || null,
     note_id: item.noteId || null,
     file_name: item.fileName,
@@ -242,7 +255,10 @@ async function loadNotesFromSupabase(){
 }
 
 async function createNoteInSupabase(note){
+  const companyId = companyIdOrFail();
+
   const payload = {
+    company_id: note.companyId || companyId,
     equip_id: note.equipId,
     date: note.date || '',
     text: note.text || '',
@@ -321,26 +337,34 @@ async function updateNoteInSupabase(noteId, updates){
 }
 
 async function loadUsersFromSupabase(){
-  const { data, error } = await sb
+  const companyId = getCompanyId();
+
+  let query = sb
     .from('users')
     .select('*')
     .order('name', { ascending: true });
+
+  if(companyId){
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
 
   if(error){
     console.error('Klaida gaunant users:', error);
     return [];
   }
 
-return (data || []).map(u => ({
-  id: u.id,
-  username: u.username,
-  display: u.name || u.username,
-  role: u.role,
-  equipId: u.equip_id || null,
-  companyId: u.company_id || null,
-  authUserId: u.auth_user_id || null,
-  email: u.email_login || ''
-}));
+  return (data || []).map(u => ({
+    id: u.id,
+    username: u.username,
+    display: u.name || u.username,
+    role: u.role,
+    equipId: u.equip_id || null,
+    companyId: u.company_id || null,
+    authUserId: u.auth_user_id || null,
+    email: u.email_login || ''
+  }));
 }
 
 async function updateUserInSupabase(userId, updates){
@@ -351,12 +375,19 @@ async function updateUserInSupabase(userId, updates){
   if(updates.role !== undefined) payload.role = updates.role;
   if(updates.equipId !== undefined) payload.equip_id = updates.equipId;
 
-  const { data, error } = await sb
-    .from('users')
-    .update(payload)
-    .eq('id', userId)
-    .select()
-    .single();
+let query = sb
+  .from('users')
+  .update(payload)
+  .eq('id', userId);
+
+const companyId = getCompanyId();
+if(companyId){
+  query = query.eq('company_id', companyId);
+}
+
+const { data, error } = await query
+  .select()
+  .single();
 
   if(error){
     console.error('Klaida atnaujinant user:', error);
@@ -369,13 +400,17 @@ async function updateUserInSupabase(userId, updates){
     display: data.name || data.username,
     role: data.role,
     equipId: data.equip_id || null,
+    companyId: data.company_id || null,
     authUserId: data.auth_user_id || null,
     email: data.email_login || ''
   };
 }
 
 async function createUserInSupabase(user){
+  const companyId = getCompanyId();
+
   const payload = {
+    company_id: user.companyId || companyId,
     name: user.display,
     username: user.username,
     role: user.role,
@@ -397,6 +432,7 @@ async function createUserInSupabase(user){
   return {
     id: data.id,
     username: data.username,
+    companyId: data.company_id || null,
     display: data.name || data.username,
     role: data.role,
     equipId: data.equip_id || null,
@@ -510,10 +546,18 @@ async function createUserViaFunction(payload){
 }
 
 async function loadEquipmentFromSupabase(){
-  const { data, error } = await sb
+  const companyId = getCompanyId();
+
+  let query = sb
     .from('equipment')
     .select('*')
     .order('type', { ascending: true });
+
+  if(companyId){
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
 
   if(error){
     console.error('Klaida gaunant equipment:', error);
@@ -525,13 +569,17 @@ async function loadEquipmentFromSupabase(){
     type: e.type,
     num: e.num,
     name: e.name || '',
-    model: e.model || ''
+    model: e.model || '',
+    companyId: e.company_id || null
   }));
 }
 
 async function createEquipmentInSupabase(equip){
+  const companyId = companyIdOrFail();
+
   const payload = {
     id: equip.id,
+    company_id: equip.companyId || companyId,
     type: equip.type,
     num: equip.num,
     name: equip.name || '',
@@ -549,13 +597,14 @@ async function createEquipmentInSupabase(equip){
     return null;
   }
 
-  return {
-    id: data.id,
-    type: data.type,
-    num: data.num,
-    name: data.name || '',
-    model: data.model || ''
-  };
+return {
+  id: data.id,
+  type: data.type,
+  num: data.num,
+  name: data.name || '',
+  model: data.model || '',
+  companyId: data.company_id || null
+};
 }
 
 async function updateEquipmentInSupabase(equipId, updates){
@@ -566,12 +615,19 @@ async function updateEquipmentInSupabase(equipId, updates){
   if(updates.name !== undefined) payload.name = updates.name;
   if(updates.model !== undefined) payload.model = updates.model;
 
-  const { data, error } = await sb
-    .from('equipment')
-    .update(payload)
-    .eq('id', equipId)
-    .select()
-    .single();
+let query = sb
+  .from('equipment')
+  .update(payload)
+  .eq('id', equipId);
+
+const companyId = getCompanyId();
+if(companyId){
+  query = query.eq('company_id', companyId);
+}
+
+const { data, error } = await query
+  .select()
+  .single();
 
   if(error){
     console.error('Klaida atnaujinant equipment:', error);
@@ -583,7 +639,8 @@ async function updateEquipmentInSupabase(equipId, updates){
     type: data.type,
     num: data.num,
     name: data.name || '',
-    model: data.model || ''
+    model: data.model || '',
+    companyId: data.company_id || null
   };
 }
 
@@ -620,8 +677,11 @@ async function loadGrabsFromSupabase(){
 }
 
 async function createGrabInSupabase(grab){
+  const companyId = companyIdOrFail();
+
   const payload = {
     id: grab.id,
+    company_id: grab.companyId || companyId,
     label: grab.label,
     parent_equip_id: grab.parentEquipId || null
   };
@@ -769,7 +829,10 @@ async function loadApprovalsFromSupabase(){
 }
 
 async function createApprovalInSupabase(approval){
+  const companyId = companyIdOrFail();
+
   const payload = {
+    company_id: approval.companyId || companyId,
     task_id: approval.taskId || null,
     equip_id: approval.equipId,
     issue: approval.issue,
@@ -783,7 +846,6 @@ async function createApprovalInSupabase(approval){
     initial_comment: approval.initialComment || '',
     helpers: approval.helpers || []
   };
-
   const { data, error } = await sb
     .from('approvals')
     .insert([payload])
@@ -854,7 +916,10 @@ async function loadCompletedFromSupabase(){
 }
 
 async function createCompletedInSupabase(item){
+  const companyId = companyIdOrFail();
+
   const payload = {
+    company_id: item.companyId || companyId,
     task_id: item.taskId || null,
     equip_id: item.equipId,
     title: item.title,
@@ -923,7 +988,10 @@ async function loadLubeFromSupabase(){
 }
 
 async function createLubeRecordInSupabase(rec){
+  const companyId = companyIdOrFail();
+
   const payload = {
+    company_id: rec.companyId || companyId,
     asset_id: rec.assetId,
     date: rec.date || '',
     by_name: rec.by || '',
@@ -977,7 +1045,10 @@ async function loadDailyChecksFromSupabase(){
 }
 
 async function saveDailyCheckInSupabase(item){
+  const companyId = companyIdOrFail();
+
   const payload = {
+    company_id: item.companyId || companyId,
     equip_id: item.equipId,
     user_id: item.userId,
     user_name: item.userName || '',
@@ -990,6 +1061,7 @@ async function saveDailyCheckInSupabase(item){
   const { data: existing, error: existingError } = await sb
     .from('daily_checks')
     .select('id')
+    .eq('company_id', companyId)
     .eq('equip_id', item.equipId)
     .eq('shift_key', item.shiftKey)
     .maybeSingle();
@@ -1115,10 +1187,12 @@ async function getCurrentDeviceRecord(){
 }
 
 async function upsertCurrentDevice(user){
+  const companyId = companyIdOrFail();
   const deviceId = getOrCreateDeviceId();
   const deviceName = getDeviceName();
 
   const payload = {
+    company_id: companyId,
     device_id: deviceId,
     device_code: getDeviceCode() || null,
     device_name: deviceName || null,
@@ -1141,10 +1215,6 @@ async function upsertCurrentDevice(user){
   }
 
   return data;
-}
-
-async function heartbeatCurrentDevice(user){
-  return await upsertCurrentDevice(user);
 }
 
 async function heartbeatCurrentDevice(user){
