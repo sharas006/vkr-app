@@ -577,14 +577,13 @@ async function loadEquipmentFromSupabase(){
 async function createEquipmentInSupabase(equip){
   const companyId = companyIdOrFail();
 
-  const payload = {
-    id: equip.id,
-    company_id: equip.companyId || companyId,
-    type: equip.type,
-    num: equip.num,
-    name: equip.name || '',
-    model: equip.model || ''
-  };
+const payload = {
+  company_id: equip.companyId || companyId,
+  type: equip.type,
+  num: equip.num,
+  name: equip.name || '',
+  model: equip.model || ''
+};
 
   const { data, error } = await sb
     .from('equipment')
