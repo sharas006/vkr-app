@@ -1187,14 +1187,17 @@ async function getCurrentDeviceRecord(){
 
 async function upsertCurrentDevice(user){
   const companyId = companyIdOrFail();
-  const deviceId = getOrCreateDeviceId();
-  const deviceName = getDeviceName();
+  const deviceCode = getDeviceCode();
+
+  if(!deviceCode){
+    console.warn('Nėra device_code – device nesaugomas');
+    return null;
+  }
 
   const payload = {
     company_id: companyId,
-    device_id: deviceId,
-    device_code: getDeviceCode() || null,
-    device_name: deviceName || null,
+    device_code: deviceCode,
+    device_name: getDeviceName() || null,
     last_seen_at: new Date().toISOString(),
     last_user_id: user?.id || null,
     last_user_name: user?.display || user?.username || ''
@@ -1203,7 +1206,7 @@ async function upsertCurrentDevice(user){
   const { data, error } = await sb
     .from('devices')
     .upsert([payload], {
-      onConflict: 'device_id'
+      onConflict: 'device_code'
     })
     .select()
     .single();

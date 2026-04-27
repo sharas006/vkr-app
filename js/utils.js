@@ -111,7 +111,16 @@ function setDeviceName(name){
 }
 
 function getDeviceCode(){
-  return localStorage.getItem('vkr_device_code') || '';
+  let code = localStorage.getItem('device_code');
+
+  if(!code){
+    code = prompt('Įvesk planšetės kodą (pvz. TAB-107-01)');
+    if(code){
+      localStorage.setItem('device_code', code);
+    }
+  }
+
+  return code;
 }
 
 function setDeviceCode(code){
