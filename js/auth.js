@@ -60,27 +60,33 @@ async function restoreSessionFromAuth(){
 
   if(profileError || !profile) return;
 
-  db.session.userId = profile.id;
-  db.session.currentUser = {
-    id: profile.id,
-    authUserId: authUser.id,
-    username: profile.username,
-    display: profile.name || profile.username,
-    role: profile.role,
-    equipId: profile.equip_id || null,
-    email: authUser.email || ''
-  };
+db.session.userId = profile.id;
+db.session.currentUser = {
+  id: profile.id,
+  authUserId: authUser.id,
+  username: profile.username,
+  display: profile.name || profile.username,
+  role: profile.role,
+  equipId: profile.equip_id || null,
+  companyId: profile.company_id || null,
+  email: authUser.email || ''
+};
+
+if(profile.company_id){
+  localStorage.setItem('company_id', profile.company_id);
+}
 
   const existingIdx = (db.users || []).findIndex(u => u.id === profile.id);
-  const normalizedUser = {
-    id: profile.id,
-    authUserId: authUser.id,
-    username: profile.username,
-    display: profile.name || profile.username,
-    role: profile.role,
-    equipId: profile.equip_id || null,
-    email: authUser.email || ''
-  };
+const normalizedUser = {
+  id: profile.id,
+  authUserId: authUser.id,
+  username: profile.username,
+  display: profile.name || profile.username,
+  role: profile.role,
+  equipId: profile.equip_id || null,
+  companyId: profile.company_id || null,
+  email: authUser.email || ''
+};
 
   if(existingIdx >= 0){
     db.users[existingIdx] = normalizedUser;
@@ -114,7 +120,7 @@ async function doLogin(username, password){
   try{
     const { data: loginRow, error: loginLookupError } = await sb
       .from('users')
-      .select('id, username, name, role, equip_id, auth_user_id, email_login')
+      .select('id, username, name, role, equip_id, company_id, auth_user_id, email_login')
       .eq('username', username)
       .maybeSingle();
 
@@ -158,18 +164,22 @@ if(loginLookupError){
       return { ok:false, msg:'Nerastas vartotojo profilis.' };
     }
 
-    const normalizedUser = {
-      id: profile.id,
-      authUserId: authUser.id,
-      username: profile.username,
-      display: profile.name || profile.username,
-      role: profile.role,
-      equipId: profile.equip_id || null,
-      email: profile.email_login || authUser.email || ''
-    };
+const normalizedUser = {
+  id: profile.id,
+  authUserId: authUser.id,
+  username: profile.username,
+  display: profile.name || profile.username,
+  role: profile.role,
+  equipId: profile.equip_id || null,
+  companyId: profile.company_id || null,
+  email: profile.email_login || authUser.email || ''
+};
 
     db.session.userId = normalizedUser.id;
     db.session.currentUser = normalizedUser;
+    if(normalizedUser.companyId){
+  localStorage.setItem('company_id', normalizedUser.companyId);
+}
 
     const existingIdx = (db.users || []).findIndex(u => u.id === normalizedUser.id);
     if(existingIdx >= 0){

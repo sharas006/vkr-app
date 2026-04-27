@@ -1,8 +1,16 @@
 async function loadTasksFromSupabase(){
-  const { data, error } = await sb
+  const companyId = getCompanyId();
+
+  let query = sb
     .from('tasks')
     .select('*')
     .order('created_at', { ascending: false });
+
+  if(companyId){
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
 
   if(error){
     console.error('Klaida gaunant tasks:', error);
@@ -14,6 +22,7 @@ async function loadTasksFromSupabase(){
     equipId: t.equip_id,
     title: t.title,
     status: t.status,
+    companyId: t.company_id || null,
     assignedTo: Array.isArray(t.assigned_to) ? t.assigned_to : [],
     shared: !!t.shared,
     source: t.source || '',
@@ -322,15 +331,16 @@ async function loadUsersFromSupabase(){
     return [];
   }
 
-  return (data || []).map(u => ({
-    id: u.id,
-    username: u.username,
-    display: u.name || u.username,
-    role: u.role,
-    equipId: u.equip_id || null,
-    authUserId: u.auth_user_id || null,
-    email: u.email_login || ''
-  }));
+return (data || []).map(u => ({
+  id: u.id,
+  username: u.username,
+  display: u.name || u.username,
+  role: u.role,
+  equipId: u.equip_id || null,
+  companyId: u.company_id || null,
+  authUserId: u.auth_user_id || null,
+  email: u.email_login || ''
+}));
 }
 
 async function updateUserInSupabase(userId, updates){
@@ -674,7 +684,10 @@ async function deleteGrabFromSupabase(grabId){
 }
 
 async function createTaskInSupabase(task){
+  const companyId = getCompanyId();
+  
   const payload = {
+    company_id: task.companyId || companyId,
     equip_id: task.equipId || null,
     title: task.title || '',
     status: task.status || 'Nauja',
@@ -709,6 +722,7 @@ async function createTaskInSupabase(task){
     equipId: data.equip_id,
     title: data.title,
     status: data.status,
+    companyId: data.company_id || null,
     assignedTo: Array.isArray(data.assigned_to) ? data.assigned_to : [],
     shared: !!data.shared,
     source: data.source || '',
@@ -1157,12 +1171,19 @@ async function updateTaskInSupabase(taskId, updates){
   if(updates.createdById !== undefined) payload.created_by_id = updates.createdById;
   if(updates.createdByRole !== undefined) payload.created_by_role = updates.createdByRole;
 
-  const { data, error } = await sb
-    .from('tasks')
-    .update(payload)
-    .eq('id', taskId)
-    .select()
-    .single();
+let query = sb
+  .from('tasks')
+  .update(payload)
+  .eq('id', taskId);
+
+const companyId = getCompanyId();
+if(companyId){
+  query = query.eq('company_id', companyId);
+}
+
+const { data, error } = await query
+  .select()
+  .single();
 
   if(error){
     console.error('Klaida atnaujinant task:', error);
@@ -1174,6 +1195,7 @@ async function updateTaskInSupabase(taskId, updates){
     equipId: data.equip_id,
     title: data.title,
     status: data.status,
+    companyId: data.company_id || null,
     assignedTo: Array.isArray(data.assigned_to) ? data.assigned_to : [],
     shared: !!data.shared,
     source: data.source || '',

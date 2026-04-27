@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vkr-pro-v3';
+const CACHE_NAME = 'vkr-pro-v4';
 const APP_SHELL = [
   './',
   './index.html',

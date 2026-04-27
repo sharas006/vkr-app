@@ -36,6 +36,19 @@ function safeTrim(s){
   return (s || '').toString().trim();
 }
 
+function getCompanyId(){
+  const user = currentUser ? currentUser() : null;
+
+  return (
+    user?.companyId ||
+    user?.company_id ||
+    db?.session?.currentUser?.companyId ||
+    db?.session?.currentUser?.company_id ||
+    localStorage.getItem('company_id') ||
+    null
+  );
+}
+
 function escapeHtml(s){
   return (s || '').toString()
     .replaceAll('&', '&amp;')
