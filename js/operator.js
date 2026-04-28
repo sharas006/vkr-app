@@ -433,8 +433,8 @@ if(saveDeviceCodeBtn){
     await upsertCurrentDevice(user);
     const currentDevice = await getCurrentDeviceRecord();
 
-    db.session.deviceEquipId = currentDevice?.equip_id || null;
-    db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+db.session.deviceEquipId = currentDevice?.equip_id || null;
+db.session.deviceId = currentDevice?.device_code || getDeviceCode();
 
     saveDB_local(db);
     render();

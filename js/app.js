@@ -21,12 +21,12 @@ function startDeviceHeartbeat(){
       if(updated){
         if(!db.devices) db.devices = [];
 
-        const idx = db.devices.findIndex(x => String(x.device_id) === String(updated.device_id));
+        const idx = db.devices.findIndex(x => String(x.device_code) === String(updated.device_code));
         if(idx >= 0) db.devices[idx] = updated;
         else db.devices.unshift(updated);
 
         db.session.deviceEquipId = updated.equip_id || null;
-        db.session.deviceId = updated.device_id || getOrCreateDeviceId();
+        db.session.deviceId = updated.device_code || getDeviceCode();
         saveDB_local(db);
       }
     } catch(err){

@@ -1169,12 +1169,16 @@ async function deleteDeviceFromSupabase(deviceId){
 }
 
 async function getCurrentDeviceRecord(){
-  const deviceId = getOrCreateDeviceId();
+  const companyId = getCompanyId();
+  const deviceCode = getDeviceCode();
+
+  if(!companyId || !deviceCode) return null;
 
   const { data, error } = await sb
     .from('devices')
     .select('*')
-    .eq('device_id', deviceId)
+    .eq('company_id', companyId)
+    .eq('device_code', deviceCode)
     .maybeSingle();
 
   if(error){
