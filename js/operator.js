@@ -220,6 +220,17 @@ function renderOpLangSwitcher(){
 function renderOperatorView(user){
   ensureOperatorData();
   const deviceCode = getDeviceCode();
+  if(deviceCode && !db.session.deviceEquipId){
+  const localDevice = (db.devices || []).find(d =>
+    String(d.device_code || '') === String(deviceCode)
+  );
+
+  if(localDevice){
+    db.session.deviceEquipId = localDevice.equip_id || null;
+    db.session.deviceId = localDevice.device_code || deviceCode;
+    saveDB_local(db);
+  }
+}
 
 if(!deviceCode){
   const body = `
@@ -255,8 +266,8 @@ if(!deviceCode){
           ${escapeHtml(t('device_not_linked_desc'))}
         </div>
         <div class="device-box" style="margin-top:12px">
-          <div class="muted small">Device ID</div>
-          <code>${escapeHtml(db.session.deviceId || getOrCreateDeviceId())}</code>
+        <div class="muted small">Planšetės kodas</div>
+         <code>${escapeHtml(db.session.deviceId || getDeviceCode())}</code>
         </div>
         <div style="margin-top:12px">
           Paprašykite administratoriaus lange <b>Planšetės</b> priskirti šiai planšetei techniką.

@@ -1119,10 +1119,18 @@ async function saveDailyCheckInSupabase(item){
 }
 
 async function loadDevicesFromSupabase(){
-  const { data, error } = await sb
+  const companyId = getCompanyId();
+
+  let query = sb
     .from('devices')
     .select('*')
     .order('last_seen_at', { ascending: false });
+
+  if(companyId){
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
 
   if(error){
     console.error('Klaida gaunant devices:', error);
