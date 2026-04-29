@@ -38,6 +38,8 @@ if(Array.isArray(devicesFromCloud)) db.devices = devicesFromCloud;
 
 async function logout(){
   if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
+  if(typeof stopDeviceHeartbeat === 'function') stopDeviceHeartbeat();
+  if(typeof stopLiveRefresh === 'function') stopLiveRefresh();
 
   await sb.auth.signOut();
   db.session.userId = null;

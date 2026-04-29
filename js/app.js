@@ -1,6 +1,7 @@
 let operatorIdleTimer = null;
 let operatorIdleTrackingBound = false;
 let deviceHeartbeatTimer = null;
+let liveRefreshTimer = null;
 
 function stopDeviceHeartbeat(){
   if(deviceHeartbeatTimer){
@@ -36,6 +37,43 @@ function startDeviceHeartbeat(){
 
   runHeartbeat();
   deviceHeartbeatTimer = setInterval(runHeartbeat, 30000);
+}
+
+function stopLiveRefresh(){
+  if(liveRefreshTimer){
+    clearInterval(liveRefreshTimer);
+    liveRefreshTimer = null;
+  }
+}
+
+function startLiveRefresh(){
+  stopLiveRefresh();
+
+  const user = currentUser();
+  if(!user) return;
+
+  liveRefreshTimer = setInterval(async () => {
+    try {
+      const oldAdminView = db.session.adminView;
+      const oldMechView = db.session.mechView;
+      const oldOpView = db.session.opView;
+
+      await reloadCoreData();
+
+      db.session.adminView = oldAdminView;
+      db.session.mechView = oldMechView;
+      db.session.opView = oldOpView;
+
+      saveDB_local(db);
+
+      if(currentUser()){
+        render();
+      }
+
+    } catch(err){
+      console.warn('Live refresh klaida:', err);
+    }
+  }, 10000);
 }
 
 document.addEventListener('visibilitychange', () => {

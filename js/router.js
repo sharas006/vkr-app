@@ -22,25 +22,28 @@ if(user.role === 'admin'){
   if(typeof stopDeviceHeartbeat === 'function') stopDeviceHeartbeat();
   root.innerHTML = renderAdminView(user);
   bindAdminView(user);
+  if(typeof startLiveRefresh === 'function') startLiveRefresh();
   return;
 }
 
 if(user.role === 'operator'){
-  root.innerHTML = renderOperatorView(user);
-  bindShell();
-  bindOperatorView(user);
-  if(typeof syncOperatorIdleLogout === 'function') syncOperatorIdleLogout();
-  if(typeof startDeviceHeartbeat === 'function') startDeviceHeartbeat();
-  return;
+root.innerHTML = renderOperatorView(user);
+bindShell();
+bindOperatorView(user);
+if(typeof syncOperatorIdleLogout === 'function') syncOperatorIdleLogout();
+if(typeof startDeviceHeartbeat === 'function') startDeviceHeartbeat();
+if(typeof startLiveRefresh === 'function') startLiveRefresh();
+return;
 }
 
 if(user.role === 'mechanic'){
   if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
   if(typeof stopDeviceHeartbeat === 'function') stopDeviceHeartbeat();
-  root.innerHTML = renderMechanicView(user);
-  bindShell();
-  bindMechanicView(user);
-  return;
+root.innerHTML = renderMechanicView(user);
+bindShell();
+bindMechanicView(user);
+if(typeof startLiveRefresh === 'function') startLiveRefresh();
+return;
 }
 
   root.innerHTML = renderShell(
