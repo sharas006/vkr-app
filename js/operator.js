@@ -220,7 +220,7 @@ function renderOpLangSwitcher(){
 function renderOperatorView(user){
   ensureOperatorData();
   const deviceCode = getDeviceCode();
-  if(deviceCode && !db.session.deviceEquipId){
+if(deviceCode && !db.session.deviceEquipId){
   const localDevice = (db.devices || []).find(d =>
     String(d.device_code || '') === String(deviceCode)
   );
