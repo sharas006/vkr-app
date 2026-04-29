@@ -54,15 +54,32 @@ function startLiveRefresh(){
 
   liveRefreshTimer = setInterval(async () => {
     try {
+      const active = document.activeElement;
+      const isEditing =
+        active &&
+        (
+          active.tagName === 'INPUT' ||
+          active.tagName === 'TEXTAREA' ||
+          active.tagName === 'SELECT' ||
+          active.isContentEditable
+        );
+
+      if(isEditing){
+        console.log('Live refresh praleistas – vartotojas pildo lauką');
+        return;
+      }
+
       const oldAdminView = db.session.adminView;
       const oldMechView = db.session.mechView;
       const oldOpView = db.session.opView;
+      const oldExpanded = JSON.parse(JSON.stringify(db.session.taskExpanded || {}));
 
       await reloadCoreData();
 
       db.session.adminView = oldAdminView;
       db.session.mechView = oldMechView;
       db.session.opView = oldOpView;
+      db.session.taskExpanded = oldExpanded;
 
       saveDB_local(db);
 
