@@ -367,6 +367,13 @@ function adminTasks(){
 
           <div style="margin-top:8px"><b>Sukūrė:</b> ${escapeHtml(t.createdBy || '—')}</div>
           <div style="margin-top:6px"><b>Priskyrimas:</b> ${t.shared ? 'Bendra visiems mechanikams' : escapeHtml(assignedNames.join(', ') || '—')}</div>
+          <div style="margin-top:6px">
+          <b>Matė:</b> ${
+           t.seenBy && Object.keys(t.seenBy).length
+            ? escapeHtml(Object.keys(t.seenBy).map(id => userDisplay(id)).join(', '))
+           : '—'
+  }
+</div>
           <div style="margin-top:6px"><b>Įkelta:</b> ${escapeHtml(fmt(t.createdAt) || '—')} (${escapeHtml(timeAgo(t.createdAt))})</div>
 
           ${progressHtml}
