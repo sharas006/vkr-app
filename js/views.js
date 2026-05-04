@@ -2,10 +2,10 @@ function renderLogin(){
   return `
     <div class="card login-card">
       <div style="text-align:center;margin-bottom:14px">
-        <img src="assets/logo.png" style="height:70px">
+        <img src="assets/logo.png" style="height:125px">
       </div>
 
-      <h2 style="margin:0 0 6px 0">VKR • Prisijungimas</h2>
+      <h2 style="margin:0 0 6px 0"> • Prisijungimas</h2>
       <div class="muted">Prisijunk, ir atsidarys tavo rolės langas.</div>
 
       <div class="row" style="margin-top:12px">
@@ -63,9 +63,14 @@ function renderShell(title, bodyHtml){
   return `
     <div class="card">
       <div class="headerline">
-        <img src="assets/logo.png" style="height:60px">
+        <img src="assets/logo.png" style="height:125px">
         <div class="right">
-          <span class="pill">${escapeHtml(title)}</span>
+          <span class="pill">
+  ${escapeHtml(title)}
+</span>
+<span class="pill">
+  ${escapeHtml(currentCompanyName())}
+</span>
           <button class="btn" id="logoutBtn">Atsijungti</button>
         </div>
       </div>

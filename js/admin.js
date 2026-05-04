@@ -1,3 +1,31 @@
+async function adminResetUserPassword(userId){
+  const u = (db.users || []).find(x => String(x.id) === String(userId));
+
+  if(!u){
+    alert('Vartotojas nerastas.');
+    return;
+  }
+
+  const newPass = prompt(
+    `Įveskite naują slaptažodį vartotojui: ${u.display || u.username}`
+  );
+
+  if(!newPass || newPass.trim().length < 6){
+    alert('Slaptažodis per trumpas. Mažiausiai 6 simboliai.');
+    return;
+  }
+
+  try{
+    await resetUserPasswordViaFunction(userId, newPass.trim());
+    alert('Slaptažodis pakeistas.');
+    await reloadCoreData();
+    render();
+  }catch(err){
+    console.error(err);
+    alert(err.message || 'Nepavyko pakeisti slaptažodžio.');
+  }
+}
+
 function renderAdminView(user){
   const view = db.session.adminView || 'tasks';
 
@@ -52,11 +80,14 @@ function renderAdminView(user){
     <div class="card">
       <div class="headerline" style="align-items:flex-start; gap:16px; margin-bottom:12px;">
         <div style="display:flex; align-items:center; gap:12px;">
-          <img src="assets/logo.png" alt="Logo" style="height:68px; width:auto; display:block;">
+          <img src="assets/logo.png" alt="Logo" style="height:125px; width:auto; display:block;">
         </div>
 
         <div class="right" style="margin-left:auto;">
-          <span class="pill">${escapeHtml(user.display || user.username)}</span>
+          <span class="pill">${escapeHtml(user.display || user.username)} | ${escapeHtml(currentCompanyName())}</span>
+          ${currentUser()?.role === 'superadmin' ? `
+          <button class="btn" id="backToSuperAdmin">← Superadmin</button>
+          ` : ''}
           <button class="btn" id="logoutBtn">Atsijungti</button>
         </div>
       </div>
@@ -84,7 +115,7 @@ function renderAdminView(user){
         ${tabBtn('devices','Planšetės',view)}
         ${tabBtn('users','Naudotojai',view)}
         ${tabBtn('equip','Technika',view)}
-        ${tabBtn('grabs','Greiferiai',view)}
+        ${tabBtn('grabs','Irankiai',view)}
         ${tabBtn('password','Slaptažodis',view)}
         ${tabBtn('analysis','Mechanikų analizė',view)}
         ${tabBtn('history','Remonto istorija',view)}
@@ -113,6 +144,14 @@ function renderAdminView(user){
 
 function bindAdminView(user){
   bindShell();
+  const backSuperBtn = document.getElementById('backToSuperAdmin');
+if(backSuperBtn){
+  backSuperBtn.onclick = ()=>{
+    db.session.adminCompanyId = null;
+    saveDB_local(db);
+    render();
+  };
+}
 
   document.querySelectorAll('[data-tab]').forEach(btn => {
     btn.onclick = ()=>{
@@ -1748,16 +1787,26 @@ function adminUsers(){
     .map(e => `<option value="${e.id}">${escapeHtml(labelEquip(e.id))}</option>`)
     .join('');
 
-  const rows = (db.users || []).map(u => `
+  const rows = (db.users || [])
+  .filter(u => String(u.role || '').toLowerCase() !== 'superadmin')
+  .map(u => `
     <tr>
       <td>${escapeHtml(u.display || '')}</td>
       <td>${escapeHtml(u.username || '')}</td>
       <td>${escapeHtml(u.role || '')}</td>
       <td>${escapeHtml(u.email || '—')}</td>
       <td>${escapeHtml(labelEquip(u.equipId) || u.equipId || '—')}</td>
-      <td class="right">
-        <button class="btn" data-edit-user="${u.id}">Keisti</button>
-      </td>
+<td class="right">
+  ${String(u.role || '').toLowerCase() !== 'superadmin' ? `
+    <button class="btn" data-edit-user="${u.id}">Keisti</button>
+
+    <button class="btn" onclick="adminResetUserPassword('${u.id}')">
+      Keisti slaptažodį
+    </button>
+  ` : `
+    <span class="muted">Neliečiamas</span>
+  `}
+</td>
     </tr>
   `).join('') || `<tr><td colspan="6" class="muted">Naudotojų nėra</td></tr>`;
 
@@ -1945,41 +1994,39 @@ if(sub === 'create'){
   }
 
   try{
-    const result = await createUserViaFunction({
-      username,
-      name: display,
-      role,
-      email,
-      password,
-      equipId: role === 'operator' ? (equipId || null) : null
-    });
+  const result = await createUserViaFunction({
+    username,
+    name: display,
+    role,
+    email,
+    password,
+    equipId: role === 'operator' ? equipId : null
+  });
 
-    const createdUser = {
-      id: result.user.id,
-      username: result.user.username,
-      display: result.user.name || result.user.username,
-      role: result.user.role,
-      equipId: result.user.equip_id || null,
-      authUserId: result.user.auth_user_id || null,
-      email: result.user.email_login || ''
-    };
-
-    db.users = db.users || [];
-    db.users.push(createdUser);
-
-    saveDB_local(db);
-    clear();
-    if(msg) msg.textContent = 'Naudotojas sukurtas.';
-    render();
-
-    setTimeout(() => {
-      scrollToTopCard();
-    }, 50);
-
-  } catch(err){
-    console.error('Klaida kuriant user:', err);
-    if(msg) msg.textContent = err?.message || 'Nepavyko sukurti naudotojo.';
+  if(!result || !result.ok){
+    const txt = result?.error || result?.message || 'Nepavyko sukurti naudotojo.';
+    if(msg) msg.textContent = txt;
+    alert(txt);
+    return;
   }
+
+  await reloadCoreData();
+
+  if(msg) msg.textContent = 'Naudotojas sukurtas.';
+  alert('Naudotojas sukurtas.');
+
+  clear();
+  db.session.usersSubView = 'list';
+  saveDB_local(db);
+  render();
+
+}catch(err){
+  console.error('Klaida kuriant user:', err);
+
+  const txt = err?.message || 'Nepavyko sukurti naudotojo.';
+  if(msg) msg.textContent = txt;
+  alert(txt);
+}
 
   return;
 }
@@ -2516,7 +2563,7 @@ function adminGrabs(){
     </div>
 
     <div class="card">
-      <h3 style="margin-top:0">Greiferiai</h3>
+      <h3 style="margin-top:0">Irankiai</h3>
       <table>
         <thead>
           <tr>
@@ -2615,10 +2662,9 @@ function bindAdminGrabs(){
         if(idx >= 0) db.grabs[idx] = updated;
       } else {
         const saved = await createGrabInSupabase({
-          id: 'grab-' + rid(),
-          label,
-          parentEquipId
-        });
+        label,
+        parentEquipId
+       });
 
         if(!saved){
           if(msg) msg.textContent = 'Nepavyko sukurti greiferio.';
@@ -2841,29 +2887,78 @@ function historyChartHtml(items){
   `;
 }
 
-function exportHistoryRowsToXlsx(rows, filename){
-  if(typeof XLSX === 'undefined'){
-    alert('Excel biblioteka neužkrauta.');
+function exportHistoryRowsToXlsx(rows){
+  if(!rows || !rows.length){
+    alert('Nėra duomenų eksportui');
     return;
   }
 
   const data = rows.map(item => ({
     Data: item.date || '',
-    Technika: labelEquip(item.equipId) || '',
-    Darbas: item.title || '',
-    'Atliko': item.doneBy || '',
-    'Padėjo': (item.helpers || []).map(id => userDisplay(id)).filter(Boolean).join(', '),
-    'Trukmė (min)': Number(item.durationMin || 0),
-    Komentaras: item.comment || '',
-    'Pradinis komentaras': item.initialComment || '',
-    'Task ID': item.taskId || '',
-    'Failų kiekis': (db.taskFiles || []).filter(f => String(f.taskId) === String(item.taskId)).length
+    Technika: labelEquip(item.equipId),
+    Užduotis: item.title || '',
+    Atliko: item.doneBy || '',
+    Pagalbininkai: (item.helpers || []).map(h => userDisplay(h)).join(', '),
+    Trukmė: fmtMinutes(item.durationMin),
+    Komentaras: item.comment || ''
   }));
 
-  const ws = XLSX.utils.json_to_sheet(data);
+// 🔹 HEADER
+const header = [
+  ['MaintFlow'],
+  ['Maintenance Report'],
+  [`Data: ${today()}`],
+  []
+];
+
+// 🔹 Sheet su header
+const ws = XLSX.utils.aoa_to_sheet(header);
+
+// 🔹 Data nuo 5 eilutės
+XLSX.utils.sheet_add_json(ws, data, { origin: 'A5' });
+// 🔹 Merge (gražiam headeriui)
+ws['!merges'] = [
+  { s: { r:0, c:0 }, e: { r:0, c:6 } },
+  { s: { r:1, c:0 }, e: { r:1, c:6 } },
+  { s: { r:2, c:0 }, e: { r:2, c:6 } }
+];
+
+// 🔹 Bold header
+['A1','A2','A3'].forEach(cell => {
+  if(ws[cell]){
+    ws[cell].s = { font: { bold: true, sz: 14 } };
+  }
+});
+
+  // 🔥 Stulpelių plotis
+  ws['!cols'] = [
+    { wch: 12 }, // Data
+    { wch: 20 }, // Technika
+    { wch: 35 }, // Užduotis
+    { wch: 20 }, // Atliko
+    { wch: 25 }, // Pagalbininkai
+    { wch: 12 }, // Trukmė
+    { wch: 40 }  // Komentaras
+  ];
+
+  // 🔥 Header bold
+  const headerCells = Object.keys(data[0]);
+  headerCells.forEach((key, i) => {
+    const cellRef = XLSX.utils.encode_cell({ r: 0, c: i });
+    if(ws[cellRef]){
+      ws[cellRef].s = {
+        font: { bold: true }
+      };
+    }
+  });
+
   const wb = XLSX.utils.book_new();
+
   XLSX.utils.book_append_sheet(wb, ws, 'Remonto istorija');
-  XLSX.writeFile(wb, filename || 'remonto_istorija.xlsx');
+
+  const fileName = `remontai_${today()}.xlsx`;
+
+  XLSX.writeFile(wb, fileName);
 }
 
 function adminHistory(){

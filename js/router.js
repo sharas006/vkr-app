@@ -17,6 +17,21 @@ if(!user){
   return;
 }
 
+if(user.role === 'superadmin'){
+  if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
+  if(typeof stopDeviceHeartbeat === 'function') stopDeviceHeartbeat();
+
+  if(db.session.adminCompanyId){
+    renderAdminAsSuperAdmin();
+  } else {
+    root.innerHTML = renderSuperAdminView(user);
+    bindSuperAdminView(user);
+  }
+
+  if(typeof startLiveRefresh === 'function') startLiveRefresh();
+  return;
+}
+
 if(user.role === 'admin'){
   if(typeof clearOperatorIdleTimer === 'function') clearOperatorIdleTimer();
   if(typeof stopDeviceHeartbeat === 'function') stopDeviceHeartbeat();

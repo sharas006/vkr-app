@@ -1,39 +1,64 @@
 async function reloadCoreData(){
+  const isSuper = currentUser()?.role === 'superadmin';
+
+  const companiesFromCloud = await loadCompaniesFromSupabase(isSuper);
+  if(Array.isArray(companiesFromCloud)) db.companies = companiesFromCloud;
+
   const usersFromCloud = await loadUsersFromSupabase();
-  if(Array.isArray(usersFromCloud) && usersFromCloud.length) db.users = usersFromCloud;
+  if(Array.isArray(usersFromCloud)) db.users = usersFromCloud;
 
   const tasksFromCloud = await loadTasksFromSupabase();
-  if(Array.isArray(tasksFromCloud) && tasksFromCloud.length) db.tasks = tasksFromCloud;
+  if(Array.isArray(tasksFromCloud)) db.tasks = tasksFromCloud;
 
   const taskFilesFromCloud = await loadTaskFilesFromSupabase();
-  if(Array.isArray(taskFilesFromCloud) && taskFilesFromCloud.length) db.taskFiles = taskFilesFromCloud;
+  if(Array.isArray(taskFilesFromCloud)) db.taskFiles = taskFilesFromCloud;
 
   const equipmentFromCloud = await loadEquipmentFromSupabase();
-  if(Array.isArray(equipmentFromCloud) && equipmentFromCloud.length) db.equipment = equipmentFromCloud;
+  if(Array.isArray(equipmentFromCloud)) db.equipment = equipmentFromCloud;
 
   const grabsFromCloud = await loadGrabsFromSupabase();
-  if(Array.isArray(grabsFromCloud) && grabsFromCloud.length) db.grabs = grabsFromCloud;
+  if(Array.isArray(grabsFromCloud)) db.grabs = grabsFromCloud;
 
   const notesFromCloud = await loadNotesFromSupabase();
-  if(Array.isArray(notesFromCloud) && notesFromCloud.length) db.notes = notesFromCloud;
+  if(Array.isArray(notesFromCloud)) db.notes = notesFromCloud;
 
   const approvalsFromCloud = await loadApprovalsFromSupabase();
-  if(Array.isArray(approvalsFromCloud) && approvalsFromCloud.length) db.approvals = approvalsFromCloud;
+  if(Array.isArray(approvalsFromCloud)) db.approvals = approvalsFromCloud;
 
   const completedFromCloud = await loadCompletedFromSupabase();
-  if(Array.isArray(completedFromCloud) && completedFromCloud.length) db.completed = completedFromCloud;
+  if(Array.isArray(completedFromCloud)) db.completed = completedFromCloud;
 
   const lubeFromCloud = await loadLubeFromSupabase();
-  if(lubeFromCloud && Object.keys(lubeFromCloud).length) db.lube = lubeFromCloud;
+  if(lubeFromCloud) db.lube = lubeFromCloud;
 
   const dailyChecksFromCloud = await loadDailyChecksFromSupabase();
-  if(Array.isArray(dailyChecksFromCloud) && dailyChecksFromCloud.length) db.dailyChecks = dailyChecksFromCloud;
+  if(Array.isArray(dailyChecksFromCloud)) db.dailyChecks = dailyChecksFromCloud;
 
-const devicesFromCloud = await loadDevicesFromSupabase();
-if(Array.isArray(devicesFromCloud)) db.devices = devicesFromCloud;
+  const devicesFromCloud = await loadDevicesFromSupabase();
+  if(Array.isArray(devicesFromCloud)) db.devices = devicesFromCloud;
 
   const checklistsFromCloud = await loadEquipmentChecklistsFromSupabase();
-  if(checklistsFromCloud && Object.keys(checklistsFromCloud).length) db.equipmentChecklists = checklistsFromCloud;
+  if(checklistsFromCloud) db.equipmentChecklists = checklistsFromCloud;
+
+  // 🔥🔥🔥 ČIA ESMĖ
+const companyId = getCompanyId();
+
+if(companyId){
+  db.tasks = (db.tasks || []).filter(x => String(x.companyId) === String(companyId));
+  db.notes = (db.notes || []).filter(x => String(x.companyId) === String(companyId));
+  db.taskFiles = (db.taskFiles || []).filter(x => String(x.companyId) === String(companyId));
+  db.dailyChecks = (db.dailyChecks || []).filter(x => String(x.companyId) === String(companyId));
+  db.equipment = (db.equipment || []).filter(x => String(x.companyId) === String(companyId));
+
+  // PAPILDOMAI PRIDĖK ŠITAS
+  db.grabs = (db.grabs || []).filter(x => String(x.companyId) === String(companyId));
+  db.completed = (db.completed || []).filter(x => String(x.companyId) === String(companyId));
+  db.approvals = (db.approvals || []).filter(x => String(x.companyId) === String(companyId));
+}
+
+await ensureDefaultChecklistsForAllEquipment();
+
+  saveDB_local(db);
 }
 
 async function logout(){
@@ -42,8 +67,9 @@ async function logout(){
   if(typeof stopLiveRefresh === 'function') stopLiveRefresh();
 
   await sb.auth.signOut();
-  db.session.userId = null;
-  db.session.currentUser = null;
+db.session.userId = null;
+db.session.currentUser = null;
+db.session.adminCompanyId = null;
   saveDB_local(db);
   render();
 }
@@ -77,7 +103,11 @@ db.session.currentUser = {
 if(profile.company_id){
   localStorage.setItem('company_id', profile.company_id);
 }
-
+const companyRows = await loadCompaniesFromSupabase();
+if(Array.isArray(companyRows) && companyRows.length){
+  db.companies = companyRows;
+  localStorage.setItem('company_name', companyRows[0].name || companyRows[0].code || '');
+}
   const existingIdx = (db.users || []).findIndex(u => u.id === profile.id);
 const normalizedUser = {
   id: profile.id,
@@ -101,7 +131,7 @@ if(normalizedUser.role === 'operator'){
 
   if(upsertedDevice){
     if(!db.devices) db.devices = [];
-    const idx = db.devices.findIndex(x => x.device_id === upsertedDevice.device_id);
+    const idx = db.devices.findIndex(x => String(x.device_code) === String(upsertedDevice.device_code));
     if(idx >= 0){
       db.devices[idx] = upsertedDevice;
     } else {
@@ -111,7 +141,7 @@ if(normalizedUser.role === 'operator'){
 
   const currentDevice = upsertedDevice || await getCurrentDeviceRecord();
   db.session.deviceEquipId = currentDevice?.equip_id || null;
-  db.session.deviceId = currentDevice?.device_id || getOrCreateDeviceId();
+  db.session.deviceId = currentDevice?.device_code || getDeviceCode();
 } else {
   db.session.deviceEquipId = null;
   db.session.deviceId = null;
@@ -182,7 +212,11 @@ const normalizedUser = {
     if(normalizedUser.companyId){
   localStorage.setItem('company_id', normalizedUser.companyId);
 }
-
+const companyRows = await loadCompaniesFromSupabase();
+if(Array.isArray(companyRows) && companyRows.length){
+  db.companies = companyRows;
+  localStorage.setItem('company_name', companyRows[0].name || companyRows[0].code || '');
+}
     const existingIdx = (db.users || []).findIndex(u => u.id === normalizedUser.id);
     if(existingIdx >= 0){
       db.users[existingIdx] = normalizedUser;

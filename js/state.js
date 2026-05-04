@@ -7,6 +7,7 @@ session: {
   opLang: 'lt',
   userId: null,
   currentUser: null,
+  adminCompanyId: null,
   adminView: 'dashboard',
   opView: 'home',
   mechView: 'tasks',
@@ -40,6 +41,7 @@ session: {
 
     users: [],
     equipment: [],
+    companies: [],
     grabs: [],
     tasks: [],
     taskFiles: [],

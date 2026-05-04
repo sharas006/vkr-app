@@ -40,6 +40,7 @@ function getCompanyId(){
   const user = currentUser ? currentUser() : null;
 
   return (
+    db?.session?.adminCompanyId ||
     user?.companyId ||
     user?.company_id ||
     db?.session?.currentUser?.companyId ||
@@ -47,6 +48,21 @@ function getCompanyId(){
     localStorage.getItem('company_id') ||
     null
   );
+}
+
+function currentCompanyName(){
+  const companyId = getCompanyId();
+  const companies = db?.companies || [];
+
+  const company = companies.find(c =>
+    String(c.id) === String(companyId)
+  );
+
+  if(company){
+    return company.name || company.code || 'Įmonė nenurodyta';
+  }
+
+  return 'Įmonė nenurodyta';
 }
 
 function escapeHtml(s){
@@ -186,13 +202,14 @@ async function ensureDefaultChecklistForEquipment(equipId){
     const { data, error } = await sb
       .from('equipment_checklists')
       .insert([{
-        equip_id: equipId,
-        item_text_lt: item.textLt,
-        item_text_ru: item.textRu,
-        item_text: item.textLt,
-        sort_order: nextSort,
-        is_active: true
-      }])
+  company_id: getCompanyId(),
+  equip_id: equipId,
+  item_text_lt: item.textLt,
+  item_text_ru: item.textRu,
+  item_text: item.textLt,
+  sort_order: nextSort,
+  is_active: true
+}])
       .select()
       .single();
 
@@ -236,6 +253,8 @@ async function boot(){
   db = local || seedDB();
 
   await restoreSessionFromAuth();
+  const companiesFromCloud = await loadCompaniesFromSupabase(currentUser()?.role === 'superadmin');
+  if(Array.isArray(companiesFromCloud)) db.companies = companiesFromCloud;
 
   const usersFromCloud = await loadUsersFromSupabase();
   if(Array.isArray(usersFromCloud) && usersFromCloud.length) db.users = usersFromCloud;
@@ -281,6 +300,11 @@ async function boot(){
 }
 
 async function reloadCoreData(){
+  const companiesFromCloud = await loadCompaniesFromSupabase(
+    currentUser()?.role === 'superadmin'
+  );
+  if(Array.isArray(companiesFromCloud)) db.companies = companiesFromCloud;
+
   const usersFromCloud = await loadUsersFromSupabase();
   if(Array.isArray(usersFromCloud) && usersFromCloud.length) db.users = usersFromCloud;
 
@@ -312,13 +336,48 @@ async function reloadCoreData(){
   if(Array.isArray(dailyChecksFromCloud) && dailyChecksFromCloud.length) db.dailyChecks = dailyChecksFromCloud;
 
   const devicesFromCloud = await loadDevicesFromSupabase();
-  if(Array.isArray(devicesFromCloud) && devicesFromCloud.length) db.devices = devicesFromCloud;
+  if(Array.isArray(devicesFromCloud)) db.devices = devicesFromCloud;
 
   const checklistsFromCloud = await loadEquipmentChecklistsFromSupabase();
   if(checklistsFromCloud && Object.keys(checklistsFromCloud).length) db.equipmentChecklists = checklistsFromCloud;
 
-  // NAUJA
   await ensureDefaultChecklistsForAllEquipment();
+
+  saveDB_local(db);
+    // === MULTI-TENANT FILTRAS PAGAL ĮMONĘ ===
+  const u = currentUser && currentUser();
+  const activeCompanyId =
+    window.currentCompanyId ||
+    u?.company_id ||
+    u?.companyId ||
+    localStorage.getItem('currentCompanyId');
+
+  const isSuperadmin = u?.role === 'superadmin';
+
+  function rowCompanyId(row){
+    return row?.company_id || row?.companyId || row?.company || '';
+  }
+
+  function belongsToActiveCompany(row){
+    if(!row) return false;
+
+    // superadminas mato pasirinktos įmonės duomenis
+    if(isSuperadmin && activeCompanyId){
+      return String(rowCompanyId(row)) === String(activeCompanyId);
+    }
+
+    // paprastas vartotojas mato tik savo įmonę
+    return String(rowCompanyId(row)) === String(u?.company_id || u?.companyId || '');
+  }
+
+  db.equipment = (db.equipment || []).filter(belongsToActiveCompany);
+  db.tasks = (db.tasks || []).filter(belongsToActiveCompany);
+  db.notes = (db.notes || []).filter(belongsToActiveCompany);
+  db.repairs = (db.repairs || []).filter(belongsToActiveCompany);
+  db.repairHistory = (db.repairHistory || []).filter(belongsToActiveCompany);
+  db.taskFiles = (db.taskFiles || []).filter(belongsToActiveCompany);
+  db.lubrications = (db.lubrications || []).filter(belongsToActiveCompany);
+  db.dailyChecks = (db.dailyChecks || []).filter(belongsToActiveCompany);
 }
 
 function labelAssetForSelect(assetId){
@@ -799,4 +858,29 @@ async function migrateChecklistRuFromDefaults(){
   saveDB_local(db);
   render();
   alert('Checklist RU migracija baigta.');
+}
+function exportCompletedToExcel(){
+  const rows = (db.completed || []).map(c => ({
+    Data: c.date || '',
+    Technika: labelEquip(c.equipId),
+    Užduotis: c.title || '',
+    Atliko: c.doneBy || '',
+    Pagalbininkai: (c.helpers || []).map(h => userDisplay(h)).join(', '),
+    Trukmė_min: c.durationMin || 0,
+    Komentaras: c.comment || '',
+    Statusas: 'Baigta'
+  }));
+
+  if(!rows.length){
+    alert('Nėra duomenų eksportui');
+    return;
+  }
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Remontai');
+
+  const fileName = `remontai_${today()}.xlsx`;
+  XLSX.writeFile(wb, fileName);
 }

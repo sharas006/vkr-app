@@ -5,11 +5,11 @@ function renderMechanicView(user){
     <div class="card">
       <div class="headerline" style="align-items:flex-start; gap:16px; margin-bottom:12px;">
         <div style="display:flex; align-items:center; gap:12px;">
-          <img src="assets/logo.png" alt="Logo" style="height:68px; width:auto; display:block;">
-        </div>
+          <img src="assets/logo.png" alt="Logo" style="height:125px; width:auto; display:block;">
+                  </div>
 
         <div class="right" style="margin-left:auto;">
-          <span class="pill">${escapeHtml(user.display || user.username)}</span>
+          <span class="pill">${escapeHtml(user.display || user.username)} | ${escapeHtml(currentCompanyName())}</span>
           <button class="btn ${view === 'password' ? 'primary' : ''}" data-mech-tab="password">Slaptažodis</button>
           <button class="btn" id="logoutBtn">Atsijungti</button>
         </div>
@@ -251,12 +251,11 @@ function mechanicTasks(user, mode = 'shared'){
               ${helperChecksHtml}
             </div>
 
-            <div class="right" style="margin-top:14px">
-              ${isUnseen ? `<button class="btn" data-seen="${t.id}">SEEN</button>` : ''}
-              <button class="btn" data-m-activate="${t.id}">Vykdoma</button>
-              <button class="btn amber" data-m-wait="${t.id}">Perduoti vadovui</button>
-              <button class="btn primary" data-m-done="${t.id}">Baigta (siųsti patvirtinimui)</button>
-            </div>
+<div class="right" style="margin-top:14px">
+  ${isUnseen ? `<button class="btn" data-seen="${t.id}">SEEN</button>` : ''}
+  <button class="btn amber" data-m-wait="${t.id}">Perduoti vadovui</button>
+  <button class="btn primary" data-m-done="${t.id}">Baigta (siųsti patvirtinimui)</button>
+</div>
 
             <div style="margin-top:14px">
               <div class="muted">Pridėti foto / dokumentą</div>

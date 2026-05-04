@@ -1,5 +1,5 @@
 const APP_CONFIG = {
-  APP_NAME: 'VKR Pro',
+  APP_NAME: 'MaintFlow',
   DB_KEY: 'vkr_pro_db_v1',
   SYNC_EVERY_MS: 5000,
   INACTIVITY_LOGOUT_MS: 30 * 60 * 1000,

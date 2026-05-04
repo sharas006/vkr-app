@@ -8,6 +8,29 @@ function companyIdOrFail(){
   return companyId;
 }
 
+async function loadCompaniesFromSupabase(loadAll = false){
+  let query = sb
+    .from('companies')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if(!loadAll){
+    const companyId = getCompanyId();
+    if(companyId){
+      query = query.eq('id', companyId);
+    }
+  }
+
+  const { data, error } = await query;
+
+  if(error){
+    console.error('Klaida gaunant companies:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
 async function loadTasksFromSupabase(){
   const companyId = getCompanyId();
 
@@ -30,9 +53,9 @@ async function loadTasksFromSupabase(){
   return (data || []).map(t => ({
     id: t.id,
     equipId: t.equip_id,
+    companyId: t.company_id || null,
     title: t.title,
     status: t.status,
-    companyId: t.company_id || null,
     assignedTo: Array.isArray(t.assigned_to) ? t.assigned_to : [],
     shared: !!t.shared,
     source: t.source || '',
@@ -51,11 +74,19 @@ async function loadTasksFromSupabase(){
 }
 
 async function loadEquipmentChecklistsFromSupabase(){
-  const { data, error } = await sb
+  const companyId = getCompanyId();
+
+  let query = sb
     .from('equipment_checklists')
     .select('*')
     .eq('is_active', true)
     .order('sort_order', { ascending: true });
+
+  if(companyId){
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
 
   if(error){
     console.error('Klaida gaunant equipment_checklists:', error);
@@ -65,12 +96,14 @@ async function loadEquipmentChecklistsFromSupabase(){
   const grouped = {};
   (data || []).forEach(r => {
     if(!grouped[r.equip_id]) grouped[r.equip_id] = [];
-grouped[r.equip_id].push({
-  id: r.id,
-  textLt: r.item_text_lt || r.item_text || '',
-  textRu: r.item_text_ru || '',
-  sortOrder: r.sort_order || 0
-});
+
+    grouped[r.equip_id].push({
+      id: r.id,
+      companyId: r.company_id || null,
+      textLt: r.item_text_lt || r.item_text || '',
+      textRu: r.item_text_ru || '',
+      sortOrder: r.sort_order || 0
+    });
   });
 
   return grouped;
@@ -88,8 +121,9 @@ async function replaceEquipmentChecklistInSupabase(equipId, items){
   }
 
   if(!items.length) return true;
-
+const companyId = companyIdOrFail();
 const payload = items.map((item, idx) => ({
+  company_id: companyId,
   equip_id: equipId,
   item_text_lt: item.textLt || '',
   item_text_ru: item.textRu || '',
@@ -111,10 +145,18 @@ const payload = items.map((item, idx) => ({
 }
 
 async function loadTaskFilesFromSupabase(){
-  const { data, error } = await sb
+  const companyId = getCompanyId();
+
+  let query = sb
     .from('task_files')
     .select('*')
     .order('created_at', { ascending: false });
+
+  if(companyId){
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
 
   if(error){
     console.error('Klaida gaunant task_files:', error);
@@ -123,6 +165,7 @@ async function loadTaskFilesFromSupabase(){
 
   return (data || []).map(f => ({
     id: f.id,
+    companyId: f.company_id || null,
     taskId: f.task_id || null,
     noteId: f.note_id || null,
     fileName: f.file_name || '',
@@ -242,6 +285,7 @@ async function loadNotesFromSupabase(){
   return (data || []).map(n => ({
     id: n.id,
     equipId: n.equip_id,
+    companyId: n.company_id || null,
     date: n.date || '',
     text: n.text || '',
     author: n.author || '',
@@ -577,13 +621,13 @@ async function loadEquipmentFromSupabase(){
 async function createEquipmentInSupabase(equip){
   const companyId = companyIdOrFail();
 
-const payload = {
-  company_id: equip.companyId || companyId,
-  type: equip.type,
-  num: equip.num,
-  name: equip.name || '',
-  model: equip.model || ''
-};
+  const payload = {
+    company_id: equip.companyId || companyId,
+    type: equip.type || '',
+    num: equip.num || '',
+    name: equip.name || '',
+    model: equip.model || ''
+  };
 
   const { data, error } = await sb
     .from('equipment')
@@ -596,14 +640,14 @@ const payload = {
     return null;
   }
 
-return {
-  id: data.id,
-  type: data.type,
-  num: data.num,
-  name: data.name || '',
-  model: data.model || '',
-  companyId: data.company_id || null
-};
+  return {
+    id: data.id,
+    companyId: data.company_id || null,
+    type: data.type || '',
+    num: data.num || '',
+    name: data.name || '',
+    model: data.model || ''
+  };
 }
 
 async function updateEquipmentInSupabase(equipId, updates){
@@ -658,19 +702,28 @@ async function deleteEquipmentFromSupabase(equipId){
 }
 
 async function loadGrabsFromSupabase(){
-  const { data, error } = await sb
+  const companyId = getCompanyId();
+
+  let query = sb
     .from('grabs')
     .select('*')
     .order('label', { ascending: true });
 
+  if(companyId){
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
+
   if(error){
-    console.error('Klaida gaunant grabs:', error);
+    console.error('Klaida gaunant irankius:', error);
     return [];
   }
 
   return (data || []).map(g => ({
     id: g.id,
-    label: g.label,
+    companyId: g.company_id || null,
+    label: g.label || '',
     parentEquipId: g.parent_equip_id || ''
   }));
 }
@@ -679,9 +732,8 @@ async function createGrabInSupabase(grab){
   const companyId = companyIdOrFail();
 
   const payload = {
-    id: grab.id,
     company_id: grab.companyId || companyId,
-    label: grab.label,
+    label: grab.label || '',
     parent_equip_id: grab.parentEquipId || null
   };
 
@@ -692,13 +744,14 @@ async function createGrabInSupabase(grab){
     .single();
 
   if(error){
-    console.error('Klaida kuriant grab:', error);
+    console.error('Klaida kuriant irankius:', error);
     return null;
   }
 
   return {
     id: data.id,
-    label: data.label,
+    companyId: data.company_id || null,
+    label: data.label || '',
     parentEquipId: data.parent_equip_id || ''
   };
 }
@@ -888,10 +941,18 @@ async function deleteApprovalFromSupabase(id){
 }
 
 async function loadCompletedFromSupabase(){
-  const { data, error } = await sb
+  const companyId = getCompanyId();
+
+  let query = sb
     .from('completed')
     .select('*')
     .order('created_at', { ascending: false });
+
+  if(companyId){
+    query = query.eq('company_id', companyId);
+  }
+
+  const { data, error } = await query;
 
   if(error){
     console.error('Klaida gaunant completed:', error);
@@ -902,6 +963,7 @@ async function loadCompletedFromSupabase(){
     id: c.id,
     taskId: c.task_id || null,
     equipId: c.equip_id || '',
+    companyId: c.company_id || null,
     title: c.title || '',
     date: c.date || '',
     durationMin: c.duration_min || 0,
@@ -947,6 +1009,7 @@ async function createCompletedInSupabase(item){
     id: data.id,
     taskId: data.task_id || null,
     equipId: data.equip_id || '',
+    companyId: data.company_id || null,
     title: data.title || '',
     date: data.date || '',
     durationMin: data.duration_min || 0,
@@ -1336,6 +1399,50 @@ async function createUserViaFunction(payload){
 
   if(body?.error){
     throw new Error(body.error);
+  }
+
+  return body;
+}
+async function createCompanyInSupabase(name, code){
+  const { data, error } = await sb
+    .from('companies')
+    .insert([{ name, code }])
+    .select()
+    .single();
+
+  if(error){
+    alert('Klaida kuriant įmonę');
+    console.error(error);
+    return null;
+  }
+
+  return data;
+}
+async function resetUserPasswordViaFunction(userId, newPassword){
+  const { data: sessionData } = await sb.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+
+  if(!accessToken){
+    throw new Error('Nėra aktyvios sesijos');
+  }
+
+  const res = await fetch(`${APP_CONFIG.SUPABASE_URL}/functions/v1/reset-user-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      'apikey': APP_CONFIG.SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({
+      userId,
+      newPassword
+    })
+  });
+
+  const body = await res.json();
+
+  if(!res.ok || body.error){
+    throw new Error(body.error || 'Nepavyko pakeisti slaptažodžio');
   }
 
   return body;
