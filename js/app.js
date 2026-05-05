@@ -39,97 +39,6 @@ function startDeviceHeartbeat(){
   deviceHeartbeatTimer = setInterval(runHeartbeat, 30000);
 }
 
-function showAppNotification(title, text){
-  let box = document.getElementById('appNotifications');
-
-  if(!box){
-    box = document.createElement('div');
-    box.id = 'appNotifications';
-    box.style.position = 'fixed';
-    box.style.top = '16px';
-    box.style.right = '16px';
-    box.style.zIndex = '99999';
-    box.style.display = 'flex';
-    box.style.flexDirection = 'column';
-    box.style.gap = '10px';
-    document.body.appendChild(box);
-  }
-
-  const item = document.createElement('div');
-  item.style.background = '#17384d';
-  item.style.color = '#fff';
-  item.style.padding = '12px 14px';
-  item.style.borderRadius = '12px';
-  item.style.boxShadow = '0 6px 18px rgba(0,0,0,.25)';
-  item.style.maxWidth = '360px';
-  item.style.fontSize = '14px';
-
-  item.innerHTML = `
-    <div style="font-weight:700;margin-bottom:4px">${escapeHtml(title)}</div>
-    <div>${escapeHtml(text || '')}</div>
-  `;
-
-  box.appendChild(item);
-
-  setTimeout(() => {
-    item.remove();
-  }, 7000);
-}
-
-function taskVisibleForNotification(task, user){
-  if(!task || !user) return false;
-
-  const role = String(user.role || '').toLowerCase();
-
-  if(role === 'admin' || role === 'superadmin'){
-    return true;
-  }
-
-  if(role === 'mechanic'){
-    const assigned = Array.isArray(task.assignedTo) ? task.assignedTo.map(String) : [];
-    return !!task.shared || assigned.includes(String(user.id));
-  }
-
-  return false;
-}
-
-function checkNewNotifications(oldTasks, oldNotes){
-  const user = currentUser();
-  if(!user) return;
-
-  const oldTaskIds = new Set((oldTasks || []).map(t => String(t.id)));
-  const oldNoteIds = new Set((oldNotes || []).map(n => String(n.id)));
-
-  const newTasks = (db.tasks || []).filter(t =>
-    !oldTaskIds.has(String(t.id)) &&
-    String(t.createdById || '') !== String(user.id || '') &&
-    taskVisibleForNotification(t, user)
-  );
-
-  newTasks.forEach(t => {
-    showAppNotification(
-      'Nauja užduotis',
-      `${labelEquip(t.equipId) || 'Technika'} – ${t.title || ''}`
-    );
-  });
-
-  const role = String(user.role || '').toLowerCase();
-
-  if(role === 'admin' || role === 'superadmin'){
-    const newNotes = (db.notes || []).filter(n =>
-      !oldNoteIds.has(String(n.id)) &&
-      String(n.authorId || '') !== String(user.id || '')
-    );
-
-    newNotes.forEach(n => {
-      showAppNotification(
-        'Nauja pastaba',
-        `${labelEquip(n.equipId) || 'Technika'} – ${(n.text || '').slice(0, 80)}`
-      );
-    });
-  }
-}
-
 function startLiveRefresh(){
   stopLiveRefresh();
 
@@ -187,57 +96,11 @@ function startLiveRefresh(){
   }, 10000);
 }
 
-function startLiveRefresh(){
-  stopLiveRefresh();
-
-  const user = currentUser();
-  if(!user) return;
-
-  liveRefreshTimer = setInterval(async () => {
-    try {
-      const active = document.activeElement;
-      const isEditing =
-        active &&
-        (
-          active.tagName === 'INPUT' ||
-          active.tagName === 'TEXTAREA' ||
-          active.tagName === 'SELECT' ||
-          active.isContentEditable
-        );
-
-      if(isEditing){
-        console.log('Live refresh praleistas – vartotojas pildo lauką');
-        return;
-      }
-
-const oldAdminView = db.session.adminView;
-const oldMechView = db.session.mechView;
-const oldOpView = db.session.opView;
-const oldExpanded = JSON.parse(JSON.stringify(db.session.taskExpanded || {}));
-
-// notifications palyginimui
-const oldTasksForNotify = Array.isArray(db.tasks) ? db.tasks.slice() : [];
-const oldNotesForNotify = Array.isArray(db.notes) ? db.notes.slice() : [];
-
-await reloadCoreData();
-
-checkNewNotifications(oldTasksForNotify, oldNotesForNotify);
-
-      db.session.adminView = oldAdminView;
-      db.session.mechView = oldMechView;
-      db.session.opView = oldOpView;
-      db.session.taskExpanded = oldExpanded;
-
-      saveDB_local(db);
-
-      if(currentUser()){
-        render();
-      }
-
-    } catch(err){
-      console.warn('Live refresh klaida:', err);
-    }
-  }, 10000);
+function stopLiveRefresh(){
+  if(liveRefreshTimer){
+    clearInterval(liveRefreshTimer);
+    liveRefreshTimer = null;
+  }
 }
 
 document.addEventListener('visibilitychange', () => {
