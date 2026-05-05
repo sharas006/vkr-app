@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vkr-pro-v11';
+const CACHE_NAME = 'Maint Flow Baltic-pro-v1';
 const APP_SHELL = [
   './',
   './index.html',

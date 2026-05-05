@@ -1,7 +1,7 @@
 {
-  "name": "VKR Pro",
-  "short_name": "VKR",
-  "description": "VKR technikos priežiūros ir užduočių sistema",
+  "name": "Maint Flow Baltic",
+  "short_name": "MFB",
+  "description": "Maint Flow Baltic technikos priežiūros ir užduočių sistema",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
